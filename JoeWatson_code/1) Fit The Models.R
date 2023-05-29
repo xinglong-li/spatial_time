@@ -132,6 +132,18 @@ for (i in sort(unique(BlackSmokePrefData2$year))[-1])
   counter = counter + no_sites
 }
 
+
+
+
+
+##############################
+#        Build Model         #
+##############################
+
+
+
+
+
 # create the Matern spde object for Y_grf #
 spde_obj = inla.spde2.pcmatern(mesh=mesh, alpha = 2,
                                prior.range = c(0.04,0.05),
@@ -374,6 +386,18 @@ stack_dummy_est_expand = inla.stack(data = list(dummy = rep(0, times = mesh$n*no
 stack_joint1 = inla.stack(stack_y_est, stack_R_est, stack_dummy_est)
 stack_joint2 = inla.stack(stack_y_est_expand, stack_R_est_expand, stack_dummy_est_expand, stack_dummy2_expand)
 
+
+
+
+
+###########################
+#      Model fitting      #
+###########################
+
+
+
+
+
 # Step 1 - fit the naive model and save object to file #
 formula_naive = y ~ -1 + Intercept +
   f(spatial.field, model = spde_obj) +
@@ -397,7 +421,11 @@ out.naive = inla(formula_naive, family = 'gaussian',
 summary(out.naive)
 
 saveRDS(out.naive,file="finalmod_naive.rds")
-rm(out.naive)
+# rm(out.naive)
+
+
+
+
 
 # Fit joint model version 1 - without zeroes over whole grid #
  formula_joint1 = alldata ~ -1 + Intercept + R.Intercept +
@@ -421,7 +449,7 @@ rm(out.naive)
 
  #I(R.spatial.field.group/30) + I((R.spatial.field.group/30)^2) + f(spatial_ind2, copy = 'spatial_ind', fixed=F)
  #f(spatial_ind, model = 'iid',hyper=list(theta=list(prior="loggamma",param=c(2,0.04)))) +
- #theta.ini2  = c('get value from output')
+ theta.ini2  = c('get value from output')
   out.joint1 = inla(formula_joint1, family = c('gaussian','binomial','gaussian'),
                    data = inla.stack.data(stack_joint1),
                    Ntrials=inla.stack.data(stack_joint1)$Ntrials,
@@ -439,6 +467,10 @@ rm(out.naive)
   saveRDS(out.joint1,file="finalmod_joint_noPS.rds")
   theta.ini3 = out.joint1$mode$theta
   rm(out.joint1)
+
+
+
+
 
  # Fit joint model version 2 #
  formula_joint2 = alldata ~ -1 + Intercept + R.Intercept +
