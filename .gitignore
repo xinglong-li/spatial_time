@@ -1,0 +1,17 @@
+*.swp
+*.swo
+*.swn
+*.swm
+*.Rproj.user
+*.Rhistory
+*.RData
+*.RDataTmp
+*.Ruserdata
+*.dbf
+Data/
+*.rds
+*.asc
+*.RData
+*.zip
+.Rproj.user
+*.prj

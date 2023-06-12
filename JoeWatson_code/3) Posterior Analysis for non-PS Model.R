@@ -17,7 +17,7 @@ library(sp)
 library(ggplot2)
 
 
-load("~/ownCloud/Jim RA/Data2Joe.RData")
+load("./Data2Joe.RData")
 
 sd_x = sd(BlackSmokePrefData[,c(2)])
 sd_y = sd(BlackSmokePrefData[,c(3)])
@@ -119,9 +119,9 @@ points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
 mesh$n #1243 vertices
 
 
-#download.file("https://borders.ukdataservice.ac.uk/ukborders/easy_download/prebuilt/shape/infuse_uk_2011.zip",
-#              destfile = "lad-region-lookup.zip")
-unzip("lad-region-lookup.zip", exdir = ".")
+# download.file("https://borders.ukdataservice.ac.uk/ukborders/easy_download/prebuilt/shape/infuse_uk_2011.zip",
+#               destfile = "lad-region-lookup.zip")
+# unzip("lad-region-lookup.zip", exdir = ".")
 region <- readOGR(".", "infuse_uk_2011")
 UK_polygon = region@polygons
 
@@ -139,9 +139,9 @@ proj_grid = inla.mesh.projector(mesh, xlim = range(BlackSmokePrefData2$east),
                                 dims = nxy)
 
 # Find all locations in the inla.projector lattice that fall outside of mainland Great Britain
-#download.file("https://borders.ukdataservice.ac.uk/ukborders/easy_download/prebuilt/shape/infuse_gb_2011.zip",
-#              destfile = "lad-region-lookup2.zip")
-#unzip("lad-region-lookup2.zip", exdir = ".")
+# download.file("https://borders.ukdataservice.ac.uk/ukborders/easy_download/prebuilt/shape/infuse_gb_2011.zip",
+#               destfile = "lad-region-lookup2.zip")
+# unzip("lad-region-lookup2.zip", exdir = ".")
 region_GB <- readOGR(".", "infuse_gb_2011")
 GB_polygons = polygons(region_GB)
 GB_polygons@polygons[["Polygon"]]
