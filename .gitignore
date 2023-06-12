@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 *.swp
 *.swo
 *.swn
@@ -15,3 +16,9 @@ Data/
 *.zip
 .Rproj.user
 *.prj
+=======
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+>>>>>>> f163708cb3740496bb0c73550a6e6067f84fa393
