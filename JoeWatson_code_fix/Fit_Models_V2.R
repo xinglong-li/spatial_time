@@ -9,7 +9,7 @@ library(ggplot2)
 
 # load data #
 load("./Reproducibility/Data2Joe.RData")
-xy_in = readRDS("./Reproducibility/xy_in.rds") # load the indicator telling us if the mesh vertices lie in GB
+# xy_in = readRDS("./Reproducibility/xy_in.rds") # load the indicator telling us if the mesh vertices lie in GB
 
 # The columns are: site name, x, y (both in British National Grid),
 # black smoke by year (mu gm/3) where NA means it wasn’t measured.
@@ -53,8 +53,8 @@ r = 0.116
 no_sites = as.numeric(length(unique(BlackSmokePrefData2$site))) # number of sites
 no_T = as.numeric(length(unique(BlackSmokePrefData2$year))) # number of years
 ind_select = matrix(0, nrow = no_sites, ncol = no_T)
-ind_select = as.matrix(!is.na(BlackSmokePrefData[,-c(1,2,3)]) )
-R = as.numeric(!is.na(BlackSmokePrefData[,-c(1,2,3)]) )
+ind_select = as.matrix(!is.na(BlackSmokePrefData[,-c(1,2,3)]))
+R = as.numeric(!is.na(BlackSmokePrefData[,-c(1,2,3)]))
 BlackSmokePrefData2$R = R # selection variable (1 if site selected at time t)
 
 ncol = 100 # grid for projection
@@ -65,18 +65,28 @@ east_grid = seq(from = min(BlackSmokePrefData$east, na.rm=T),
 north_grid = seq(from = min(BlackSmokePrefData$north, na.rm=T),
                  to = max(BlackSmokePrefData$north, na.rm=T), length.out = nrow)
 
-
-# Load the regular mesh #
-mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
-
+# UK_domain <- cbind(c(2, 7.7, 7.7, 6, 4, 1), c(0.5, 0.5, 6, 13.5, 13.5, 12))
+hull = inla.nonconvex.hull(cbind(BlackSmokePrefData2$east, BlackSmokePrefData2$north),
+                           convex = -0.02)
+# cutoff_dist = 16000/sd_x # 10km < 17km as min edge
+cutoff_dist = 6000/sd_x # 10km < 17km as min edge
+# max.edge = 100000/sd_x # 100km max edge as in Shaddick and Zidek
+mesh = inla.mesh.2d(loc = cbind(BlackSmokePrefData2$east, BlackSmokePrefData2$north),
+                    boundary = hull,
+                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, 0.5),
+                    cutoff = c(cutoff_dist, 0.5),
+                    min.angle = 26)
 plot(mesh, asp = 1)
-points(x = BlackSmokePrefData$east*sd_x, y = BlackSmokePrefData$north*sd_x, col = 'red')
-
+points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
 mesh$n #2432 vertices
 
-# scale the mesh onto the transformed scale
-mesh$loc = mesh$loc / sd_x
-
+# # Load the regular mesh #
+# mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
+# plot(mesh, asp = 1)
+# points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
+# mesh$n #2432 vertices
+# # scale the mesh onto the transformed scale
+# mesh$loc = mesh$loc / sd_x
 
 # Compute Euclidean distances between all the sites #
 Dists = spDists(cbind(BlackSmokePrefData$east, BlackSmokePrefData$north))
@@ -176,8 +186,9 @@ colnames(data_expand) = names(BlackSmokePrefData2)
 data_expand[,'east'] = rep(mesh$loc[unvisited_nodes[1:number_unvisited_nodes_per_year],1], times = no_T)
 data_expand[,'north'] = rep(mesh$loc[unvisited_nodes[1:number_unvisited_nodes_per_year],2], times = no_T)
 data_expand[,'repulsion_ind'] = 0
-# Put a 0 in the unvisited nodes if and only if they lie inside the GB boundary. Else put NA.
-data_expand[,'R'] = rep(ifelse(xy_in == 1, 0, NA)[unvisited_nodes[1:number_unvisited_nodes_per_year]], times = no_T)
+# # Put a 0 in the unvisited nodes if and only if they lie inside the GB boundary. Else put NA.
+# data_expand[,'R'] = rep(ifelse(xy_in == 1, 0, NA)[unvisited_nodes[1:number_unvisited_nodes_per_year]], times = no_T)
+data_expand[,'R'] = 0
 data_expand[,'R_lag'] = c(rep(NA, number_unvisited_nodes_per_year), rep(0, number_unvisited_nodes_per_year*(no_T-1)) )
 # Map the repulsion onto the nodes #
 for(i in sort(unique(BlackSmokePrefData2$year))[-1])
@@ -287,7 +298,7 @@ s_index_copy_dummy3$spatial.field.group.copy.dummy3 = c(rep(1,mesh$n), s_index_c
 #w = c(w, rep(-1, nyears*mesh$n))
 #dummy_var = 1:(nyears*mesh$n)
 
-cov_dummy2_expand = data.frame(spatial_ind_dummy = c(rep(1:no_sites, times = no_T),no_sites + rep(1:number_unvisited_nodes_per_year, times = no_T)), # Only estimate random effects for site locations
+cov_dummy2_expand = data.frame(spatial_ind_dummy = c(rep(1:no_sites, times = no_T), no_sites + rep(1:number_unvisited_nodes_per_year, times = no_T)), # Only estimate random effects for site locations
                                spatial_ind_dummy2 = dim(data_expand)[1]/no_T + c(rep(1:no_sites, times = no_T), no_sites+rep(1:number_unvisited_nodes_per_year, times = no_T)),
                                time_dummy = c(((data_expand$year-65)/no_T)[1:(dim(data_expand)[1]/no_T)], ((data_expand$year-65)/no_T)[1:((dim(data_expand)[1]/no_T)*(no_T-1))]),
                                spatial.field.dummy2 = 1:dim(data_expand)[1],

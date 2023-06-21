@@ -14,9 +14,9 @@ library(ggplot2)
 library(MASS)
 
 # Load in all the data used to fit the models
-load('final_mod_joint1_helper2.RData')
+load('./Reproducibility/final_mod_joint1_helper2.RData')
 # load a higher resolution mesh
-mesh <- readRDS('mesh_5_7.rds')
+mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
 # the stack_X_expand objects contain the dummy points situated throughout GB
 # the stack_X_est objects are restricted to the sampled locations
 # The stack_joint1 object contains only the X_'est' data objects and does not
@@ -32,7 +32,7 @@ table(stack_R_est_expand$data$data$R) # Notice the much higher number of 0's
 table(is.na(stack_y_est_expand$data$data$y)) # Notice the match
 
 # Load the P2 model corresponding to the previously loaded mesh
-mod1 <- readRDS('Mod3_V5_superhighresmesh_regular_eblaplace.rds')
+mod1 <- readRDS('./Reproducibility/Mod3_V5_superhighresmesh_regular_eblaplace.rds')
 # Or load the model fit using the script Fit Models.R
 #mod1 <- readRDS('finalmod_joint2_reproduce.rds')
 
@@ -41,12 +41,12 @@ mod1 <- readRDS('Mod3_V5_superhighresmesh_regular_eblaplace.rds')
 ### Sampling from Posterior distribution ###
 ############################################
 # Creating Samples
-m_samples = 1000
+m_samples = 100
 # The paper uses 1000, but we suggest running only 100 to save memory
 
 # Do we want to sample from the model now, or load precompiled samples?
 # Note the samples come from the model saved in file: Mod3_V5_superhighresmesh_regular_eblaplace.rds
-sample <- F
+sample <- T
 
 if(sample)
 {
@@ -55,7 +55,7 @@ if(sample)
 if(!sample)
 {
   # To save time, we load our samples
-  samp2 = readRDS('Mod3_V5_samples_superhighresmesh_regular_eblaplace1.rds')
+  samp2 = readRDS('./Reproducibility/Mod3_V5_samples_superhighresmesh_regular_eblaplace1.rds')
 }
 
 ### A matrix for projecting SPDEs ###
@@ -374,7 +374,7 @@ qqline(residual_plot_df$y)
 ## Now we plot the population density curves
 
 # create the population density raster
-pop_dens = raster('UK_residential_population_2011_1_km.asc')
+pop_dens = raster('./Reproducibility/UK_residential_population_2011_1_km.asc')
 pop_dens = as(pop_dens, 'SpatialPixelsDataFrame')
 pop_dens@proj4string = GB_polygons_simp@proj4string
 pop_dens@data$UK_residential_population_2011_1_km[is.na(pop_dens@data$UK_residential_population_2011_1_km)] = 0
