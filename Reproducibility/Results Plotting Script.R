@@ -41,7 +41,7 @@ mod1 <- readRDS('./Reproducibility/Mod3_V5_superhighresmesh_regular_eblaplace.rd
 ### Sampling from Posterior distribution ###
 ############################################
 # Creating Samples
-m_samples = 100
+m_samples = 1000
 # The paper uses 1000, but we suggest running only 100 to save memory
 
 # Do we want to sample from the model now, or load precompiled samples?

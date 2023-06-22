@@ -14,7 +14,7 @@ Internally we should decode the formula inputted by the user and encode it to fi
 
 To begin with we can use INLA formula format, and to see how to simplify the form to make it.
 
-### 2. Data standardization/rescale 
+### 2. Data standardization/rescale
 
 Standardize the data before fitting model and rescale the result after model fitting.
 
@@ -33,3 +33,11 @@ Fit the model using INLA.
 ### - Summary/Print
 
 ### - Plot
+
+## ISSUES:
+
+-   How to set `boundary, max.edge, cutoff, offset` in calling `inla.mesh.2d`. and
+
+    how to set `convex` in calling `inla.nonconvex.hull.`
+
+-   

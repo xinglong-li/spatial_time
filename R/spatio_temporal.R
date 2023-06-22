@@ -3,6 +3,7 @@ library(INLA)
 
 spatial_temporal <- function(formula = NULL,
                              data = NULL,
+                             boundary = NULL,
                              family = NULL) {
   # Args:
   #   family: a string that specifies the distribution of the data.
