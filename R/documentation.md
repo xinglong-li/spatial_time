@@ -40,4 +40,4 @@ Fit the model using INLA.
 
     how to set `convex` in calling `inla.nonconvex.hull.`
 
--   
+-   In defining the formula for the joint likelihood, the key difference from the separate model is that in the joint model the effects can be shared among likelihoods.
