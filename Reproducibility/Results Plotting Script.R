@@ -189,7 +189,10 @@ hyper_results = as.data.frame(mod1$summary.hyperpar)
 if(sample)
 {
   mod1_hyperparameter_samples <-
-    inla.hyperpar.sample(mod1, n=m_samples)
+    inla.hyperpar.sample(mod1, n=m_samples) 
+  # Per the author, Havard Rue, "If the task is to sample the hyperparameters, 
+  # the you can use inla.hyperpar.sample(), which has a different behaviour than inla.posterior.sample
+  
 }
 if(!sample)
 {
@@ -197,8 +200,8 @@ if(!sample)
   mod1_hyperparameter_samples <- readRDS("EB_Mod3_V5_hyperpar_samples.rds")
   # Notice the posterior SD estimates - they appear to low
 }
-apply(mod1_hyperparameter_samples,2,mean)
-apply(mod1_hyperparameter_samples,2,sd)
+apply(mod1_hyperparameter_samples, 2, mean)
+apply(mod1_hyperparameter_samples, 2, sd)
 
 # # Step three - Make results tables for selected (R=1) sites estimates at each t
 site_results2 = matrix(0, nrow = no_T, ncol = 4) # prediction means, sd, LCL, UCL
@@ -448,7 +451,7 @@ for (i in 1:m_samples){
     
     # compute the proportion of population exposed to levels of BS above EU threshold
     post_popdens_prop[i,j] = sum( ( ( (A_popden %*% Post_Array2[i,j,]) + linear_pred_addon ) > exceedance_val) * pop_dens_data )
-  
+    
     counter = counter + mesh$n
     counter2 = counter2 + no_sites
   }

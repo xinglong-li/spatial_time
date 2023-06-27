@@ -3,37 +3,48 @@ library(INLA)
 
 spatial_temporal <- function(formula = NULL,
                              data = NULL,
+                             coordicates = NULL,
                              boundary = NULL,
                              family = NULL) {
   # Args:
   #   family: a string that specifies the distribution of the data.
   #           Check \code{names(inla.models()$likelihood)} for the full list acceptable families.
   
-  # Prepare variables/factors and for INLA formula
+  # Prepare standardized variables/factors and for INLA formula ------------------------------------
+
+  st_input <- standardize_input(data, coordinates, boundary)
+  loc <- st_input$loc
+  boudary <- st_input$boundary
+  covariates <- st_input$covariates
+  obvervations <- st_input$observations
   
-  if (is.null(boundary)) {
-    boundary <- inla.nonconvex.hull(points = coords)
-  }
-  
-  st_mesh <- inla.mesh.2d(loc = coodinates, # Coordinates and borders are to be inputted by user
+  # Prepare the mesh grid --------------------------------------------------------------------------
+
+  st_mesh <- inla.mesh.2d(loc = coodinates,
                           boundary = boundary,
                           max.edge = c(),
-                          min.angle = .
+                          min.angle = NULL,
                           offset = c(),
-                          cutoff = c())
-  # Instead we define the spde also providing pc-prior
-  st_spde <- inla.spde2.pcmatern(mesh = mesh,
+                          cutoff = c()
+                          )
+
+  # Construct the SPDE -----------------------------------------------------------------------------
+
+  st_spde <- inla.spde2.pcmatern(mesh = st_mesh,
                                  alpha = 2,
-                                 # P(practic.range < 0.3) = 0.5
-                                 prior.range = c(0.3, 0.5),
-                                 # P(sigma > 10) = 0.01
-                                 prior.sigma = c(10, 0.01))
+                                 prior.range = c(0.3, 0.5), # P(practic.range < 0.3) = 0.5
+                                 prior.sigma = c(10, 0.01) # P(sigma > 10) = 0.01
+                                 )
   
+  # Extract the projection matrix for estimation ---------------------------------------------------
+
   A_est <- inla.spde.make.A(mesh = st_mesh,
-                            loc = coordinates)
+                            loc = loc
+                            )
   
   grid_index <- inla.spde.make.index(name = "spatial_field",
-                                     n.spde = st_spde$n.spde)
+                                     n.spde = st_spde$n.spde
+                                     )
   
   if (temporal) {
     A_est <- inla.make.A(mesh = st_mesh,
@@ -45,12 +56,15 @@ spatial_temporal <- function(formula = NULL,
                                        n.groups = n_days)
   }
   
-  stack_est_A <- list(A_est, 1) # we can put all covariates into one data frame and share the '1'
-  stack_est_effects <- list(c(grid_index, list(Intercept = 1)),
-                            list(covariates))
+  # Prepare the stack for estimation ---------------------------------------------------------------
+  
+  A_stack_est <- list(A_est, 1) # we can put all covariates into one data frame and share the '1'
+  effects_stack_est <- list(c(grid_index, list(Intercept = 1)),
+                            list(covariates)
+                            )
   stack_est <- inla.stack(data = list(y = NULL),
-                          A = stack_est_A,
-                          effects = stack_est_effects,
+                          A = A_stack_est,
+                          effects = effects_stack_est,
                           tag = "estimation")
   
   if (multiplelikelihoods) {
@@ -134,7 +148,7 @@ spatial_predict <- function(st_mesh,
 
 
 spatial_predict <- function() {
-  # If the linear predictor marginal distributions are not necessary, 
+  # If the linear predictor marginal distributions are not necessary,
   # a less computationally heavy solution consists in projecting the latent field 
   # – estimated at the mesh vertices – onto the grid locations.
   A_pred <- inla.spde.make.A(mesh=Swiss.mesh) # Or this is equivalent to A = 1, so that its just on mesh point? page101
@@ -193,5 +207,3 @@ print.spatial_temporal <- function(obj) {
   #
   # Args:
 }
-
-
