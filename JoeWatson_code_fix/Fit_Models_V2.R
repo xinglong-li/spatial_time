@@ -7,6 +7,9 @@ library(reshape2)
 library(sp)
 library(ggplot2)
 
+
+# Data preparation =================================================================================
+
 # load data #
 load("./Reproducibility/Data2Joe.RData")
 # xy_in = readRDS("./Reproducibility/xy_in.rds") # load the indicator telling us if the mesh vertices lie in GB
@@ -26,22 +29,23 @@ plot(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north)
 
 # reshape the data with one observation per row (required by INLA)
 BlackSmokePrefData2 = melt(BlackSmokePrefData,id.vars = c(1,2,3), variable.name = 'year', value.name = 'bsmoke')
-BlackSmokePrefData2$year = as.numeric(as.character(factor(BlackSmokePrefData2$year, labels =66:96 )))
+BlackSmokePrefData2$year = as.numeric(as.character(factor(BlackSmokePrefData2$year, labels =66:96)))
 
 hist(BlackSmokePrefData2$bsmoke) #right skew - take natural log
 BlackSmokePrefData2$bsmoke = log(BlackSmokePrefData2$bsmoke / mean(colMeans(BlackSmokePrefData[,4:34], na.rm = T)))
 # Divided by 30.7 first - the mean of the annual means across all sites - to make it unitless
 hist(BlackSmokePrefData2$bsmoke) # more bell-shaped
 
-subsmaple_plotting_data = BlackSmokePrefData2[which(BlackSmokePrefData2$site %in% levels(BlackSmokePrefData2$site)[sample.int(1466, size = 30)]),]
+subsmaple_plotting_data = BlackSmokePrefData2[
+  which(BlackSmokePrefData2$site %in% levels(BlackSmokePrefData2$site)[sample.int(1466, size = 30)]), ]
 
 means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = bsmoke)) +
   geom_line(aes(group = site, colour = site))
 means_plot
 
 subsample_plotting_data2 = data.frame(variance = 0, year = 66:96)
-subsample_plotting_data2$variance = apply(log(BlackSmokePrefData[,4:34] / 30.7), 2 , var, na.rm=T )
-variance_plot =  ggplot(data = subsample_plotting_data2, aes(x = year, y = variance)) +
+subsample_plotting_data2$variance = apply(log(BlackSmokePrefData[, 4:34] / 30.7), 2, var, na.rm=T)
+variance_plot = ggplot(data = subsample_plotting_data2, aes(x = year, y = variance)) +
   geom_line() + geom_smooth() + ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
 
@@ -53,40 +57,12 @@ r = 0.116
 no_sites = as.numeric(length(unique(BlackSmokePrefData2$site))) # number of sites
 no_T = as.numeric(length(unique(BlackSmokePrefData2$year))) # number of years
 ind_select = matrix(0, nrow = no_sites, ncol = no_T)
-ind_select = as.matrix(!is.na(BlackSmokePrefData[,-c(1,2,3)]))
-R = as.numeric(!is.na(BlackSmokePrefData[,-c(1,2,3)]))
+ind_select = as.matrix(!is.na(BlackSmokePrefData[, -c(1,2,3)]))
+R = as.numeric(!is.na(BlackSmokePrefData[, -c(1,2,3)]))
 BlackSmokePrefData2$R = R # selection variable (1 if site selected at time t)
 
-ncol = 100 # grid for projection
-nrow = 100
-L = nrow * ncol # number of grid sites
-east_grid = seq(from = min(BlackSmokePrefData$east, na.rm=T),
-                to = max(BlackSmokePrefData$east, na.rm=T), length.out = ncol)
-north_grid = seq(from = min(BlackSmokePrefData$north, na.rm=T),
-                 to = max(BlackSmokePrefData$north, na.rm=T), length.out = nrow)
 
-# UK_domain <- cbind(c(2, 7.7, 7.7, 6, 4, 1), c(0.5, 0.5, 6, 13.5, 13.5, 12))
-hull = inla.nonconvex.hull(cbind(BlackSmokePrefData2$east, BlackSmokePrefData2$north),
-                           convex = -0.02)
-# cutoff_dist = 16000/sd_x # 10km < 17km as min edge
-cutoff_dist = 6000/sd_x # 10km < 17km as min edge
-# max.edge = 100000/sd_x # 100km max edge as in Shaddick and Zidek
-mesh = inla.mesh.2d(loc = cbind(BlackSmokePrefData2$east, BlackSmokePrefData2$north),
-                    boundary = hull,
-                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, 0.5),
-                    cutoff = c(cutoff_dist, 0.5),
-                    min.angle = 26)
-plot(mesh, asp = 1)
-points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
-mesh$n #2432 vertices
-
-# # Load the regular mesh #
-# mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
-# plot(mesh, asp = 1)
-# points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
-# mesh$n #2432 vertices
-# # scale the mesh onto the transformed scale
-# mesh$loc = mesh$loc / sd_x
+# Prepare covariates ===============================================================================
 
 # Compute Euclidean distances between all the sites #
 Dists = spDists(cbind(BlackSmokePrefData$east, BlackSmokePrefData$north))
@@ -111,11 +87,43 @@ for (i in sort(unique(BlackSmokePrefData2$year))[-1])
   counter = counter + no_sites
 }
 
+
+# SPDE prepare =====================================================================================
+
+ncol = 100 # grid for projection
+nrow = 100
+L = nrow * ncol # number of grid sites
+
+# UK_domain <- cbind(c(2, 7.7, 7.7, 6, 4, 1), c(0.5, 0.5, 6, 13.5, 13.5, 12))
+hull = inla.nonconvex.hull(cbind(BlackSmokePrefData2$east, BlackSmokePrefData2$north),
+                           convex = -0.02)
+# cutoff_dist = 16000/sd_x # 10km < 17km as min edge
+cutoff_dist = 6000/sd_x # 10km < 17km as min edge
+# max.edge = 100000/sd_x # 100km max edge as in Shaddick and Zidek
+mesh = inla.mesh.2d(loc = cbind(BlackSmokePrefData2$east, BlackSmokePrefData2$north),
+                    boundary = hull,
+                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, 0.5),
+                    cutoff = c(cutoff_dist, 0.5),
+                    min.angle = 26)
+plot(mesh, asp = 1)
+points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
+mesh$n #2432 vertices
+
+# # Load the regular mesh #
+# mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
+# plot(mesh, asp = 1)
+# points(x = BlackSmokePrefData$east, y = BlackSmokePrefData$north, col = 'red')
+# mesh$n #2432 vertices
+# # scale the mesh onto the transformed scale
+# mesh$loc = mesh$loc / sd_x
+
 # create the Matern spde object for Y_grf #
-spde_obj = inla.spde2.pcmatern(mesh=mesh, alpha = 2,
+spde_obj = inla.spde2.pcmatern(mesh=mesh, 
+                               alpha = 2,
                                prior.range = c(0.04,0.05),
                                prior.sigma = c(1,0.01),
-                               constr = T) # alpha = 2 implies 1st order smoothness ie 1 times differentiable (same as exponential)
+                               constr = T) 
+# alpha = 2 implies 1st order smoothness ie 1 times differentiable (same as exponential)
 # PC prior says we believe the lower 1st percentile of range is 3.4km (a fifth of the min range found by Shaddick and Zidek)
 # 99th percentile for the GRF's standard deviation is 1. We don't believe sd higher.
 
