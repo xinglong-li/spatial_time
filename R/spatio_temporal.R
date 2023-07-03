@@ -1,11 +1,18 @@
 library(INLA)
 
 
-spatial_temporal <- function(formula = NULL,
-                             data = NULL,
-                             coordicates = NULL,
-                             boundary = NULL,
-                             family = NULL) {
+# spatial_temporal <- function(formula = NULL,
+#                              data = NULL,
+#                              coordicates = NULL,
+#                              boundary = NULL,
+#                              family = NULL) {
+
+spatial_temporal <- function(st_formula_joint, 
+                             family = c('gaussian','binomial','gaussian','gaussian'),
+                             data = inla.stack.data(stack_joint2),
+                             Ntrials=inla.stack.data(stack_joint2)$Ntrials,
+                             control.predictor = list(A = inla.stack.A(stack_joint2), compute = F),
+                             verbose = TRUE) {
   # Args:
   #   family: a string that specifies the distribution of the data.
   #           Check \code{names(inla.models()$likelihood)} for the full list acceptable families.
@@ -92,15 +99,32 @@ spatial_temporal <- function(formula = NULL,
                                                     group = spatial_field.group,
                                                     control.group = list(model = "ar1"))
   precprior <- list(theta = list(param=c(1, 0.1)))
-  inla_obj <- inla(formula = st_formula,
-                   family = c(""),
-                   data = inla.stack.data(joint_stack, spde = st_spde),
-                   control.predictor = list(A = inla.stack.A(st_stack), compute=TRUE),
+  
+  # Model fitting ----------------------------------------------------------------------------------
+  
+  inla_obj <- inla(formula = st_formula_joint,
+                   family = family,
+                   data = inla.stack.data(stack_joint,
+                                          spde = st_spde),
+                   control.predictor = list(A = inla.stack.A(stack_joint),
+                                            compute = TRUE),
                    control.family = list(list(hyper=precprior),
                                          list(hyper=precprior)),
-                   control.compute = list(dic = TRUE, config = TRUE),
-                   control.inla = list(strategy = "laplace",
-                                       int.strategy = 'eb'))
+                   control.compute = list(dic = TRUE, 
+                                          config = TRUE,
+                                          cpo = TRUE),
+                   control.fixed = list(mean = list(Intercept = 1, default = 0),
+                                        prec = list(Intercept = 0.25, default = 0.001)),
+                   control.results = list(return.marginals.random = FALSE,
+                                          return.marginals.predictor = FALSE),
+                   control.inla = list(h = 1e-5, 
+                                       strategy = "laplace",
+                                       int.strategy = 'eb'),
+                   verbose = verbose, 
+                   num.threads = 8)
+  
+  # Return results ---------------------------------------------------------------------------------
+  
   st_obj <- list(inla_mesh = st_mesh,
                  inla_obj = inla_obj)
   class(st_obj) <- "spatial_temporal"
@@ -108,6 +132,8 @@ spatial_temporal <- function(formula = NULL,
   return(st_obj)
 }
 
+
+# Make spatial prediction ==========================================================================
 
 spatial_predict <- function(st_mesh, 
                             ) {

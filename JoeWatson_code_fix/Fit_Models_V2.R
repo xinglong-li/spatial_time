@@ -134,11 +134,11 @@ s_index = inla.spde.make.index(name = "spatial.field",
 
 time = (1:no_T)/no_T
 time2 = time^2
-# create the stack object for estimating observation process y #
-cov_y = data.frame(year = rep(time, each = no_sites),
-                   year_2 = rep(time2, each = no_sites),
-                   spatial_ind = rep(1:no_sites, times = no_T),
-                   spatial_ind2 = no_sites + rep(1:no_sites, times = no_T)) # site-specific random intercepts
+# # create the stack object for estimating observation process y #
+# cov_y = data.frame(year = rep(time, each = no_sites),
+#                    year_2 = rep(time2, each = no_sites),
+#                    spatial_ind = rep(1:no_sites, times = no_T),
+#                    spatial_ind2 = no_sites + rep(1:no_sites, times = no_T)) # site-specific random intercepts
 
 
 s_index_copy = s_index
@@ -148,15 +148,15 @@ s_index_copy2 = s_index
 names(s_index_copy2) = c('spatial.field.copy2',"spatial.field.group.copy2", "spatial.field.repl.copy2")
 
 
-stack_y_est = inla.stack(data = list(y = BlackSmokePrefData2$bsmoke, #single model
-                                     alldata = cbind(BlackSmokePrefData2$bsmoke, NA, NA),
-                                     Ntrials = rep(0,times = length(BlackSmokePrefData2$bsmoke))), #joint model
-                         A = list(A_proj,A_proj,A_proj,1),
-                         effects= list(c(s_index, list(Intercept = 1)),
-                                       c(s_index_copy, list(Intercept_copy = 1)),
-                                       c(s_index_copy2, list(Intercept_copy2 = 1)),
-                                       cov_y),
-                         tag = 'y_est')
+# stack_y_est = inla.stack(data = list(y = BlackSmokePrefData2$bsmoke, #single model
+#                                      alldata = cbind(BlackSmokePrefData2$bsmoke, NA, NA),
+#                                      Ntrials = rep(0,times = length(BlackSmokePrefData2$bsmoke))), #joint model
+#                          A = list(A_proj,A_proj,A_proj,1),
+#                          effects= list(c(s_index, list(Intercept = 1)),
+#                                        c(s_index_copy, list(Intercept_copy = 1)),
+#                                        c(s_index_copy2, list(Intercept_copy2 = 1)),
+#                                        cov_y),
+#                          tag = 'y_est')
 
 # Find the MESH indices that correspond to R = 1 #
 # Then we can try to predict at mesh locations elsewhere by pretending R = 0 to see what effect is #
@@ -217,7 +217,7 @@ cov_y_expand = data.frame(year = (data_expand$year-65)/no_T,
 stack_y_est_expand = inla.stack(data = list(y = data_expand$bsmoke, #single model
                                             alldata = cbind(data_expand$bsmoke, NA,NA,NA),
                                             Ntrials = rep(0,times = length(data_expand$bsmoke))), #joint model
-                                A = list(A_proj_expand,A_proj_expand,A_proj_expand,1),
+                                A = list(A_proj_expand, A_proj_expand, A_proj_expand, 1),
                                 effects= list(c(s_index, list(Intercept = 1)),
                                               c(s_index_copy, list(Intercept_copy = 1)),
                                               c(s_index_copy2, list(Intercept_copy2 = 1)),
@@ -225,34 +225,34 @@ stack_y_est_expand = inla.stack(data = list(y = data_expand$bsmoke, #single mode
                                 tag = 'y_est_expand')
 print('stack y est expand complete')
 
-# create the stack object for estimating selection process R #
-cov_R = data.frame(R_lag = BlackSmokePrefData2$R_lag,
-                   yearR = rep(time, each = no_sites),
-                   yearR_2 = rep(time2, each = no_sites),
-                   repulsion_ind = BlackSmokePrefData2$repulsion_ind,
-                   R_year = BlackSmokePrefData2$year)
-#spatial_ind2 = sim_data$spatial_ind
+# # create the stack object for estimating selection process R #
+# cov_R = data.frame(R_lag = BlackSmokePrefData2$R_lag,
+#                    yearR = rep(time, each = no_sites),
+#                    yearR_2 = rep(time2, each = no_sites),
+#                    repulsion_ind = BlackSmokePrefData2$repulsion_ind,
+#                    R_year = BlackSmokePrefData2$year)
+# #spatial_ind2 = sim_data$spatial_ind
+# 
+# R_s_index = s_index
+# names(R_s_index) = c('R.spatial.field',"R.spatial.field.group", "R.spatial.field.repl")
+# # change the R.spatial.field to 1:lengthlength(s_index_dummy$spatial.field.dummy) instead of rep(1:mesh$n, nyears)
+# R_s_index$R.spatial.field = 1:(mesh$n * no_T)
+# 
+# R_s_index_copy = s_index
+# names(R_s_index_copy) = c('R.spatial.field.copy',"R.spatial.field.group.copy", "R.spatial.field.repl.copy")
+# R_s_index_copy2 = s_index
+# names(R_s_index_copy2) = c('R.spatial.field.copy2',"R.spatial.field.group.copy2", "R.spatial.field.repl.copy2")
+# #R_s_index$R.spatial.field.group = pmax(1, R_s_index$R.spatial.field.group-1) #lag the time by 1
 
-R_s_index = s_index
-names(R_s_index) = c('R.spatial.field',"R.spatial.field.group", "R.spatial.field.repl")
-# change the R.spatial.field to 1:lengthlength(s_index_dummy$spatial.field.dummy) instead of rep(1:mesh$n, nyears)
-R_s_index$R.spatial.field = 1:(mesh$n * no_T)
-
-R_s_index_copy = s_index
-names(R_s_index_copy) = c('R.spatial.field.copy',"R.spatial.field.group.copy", "R.spatial.field.repl.copy")
-R_s_index_copy2 = s_index
-names(R_s_index_copy2) = c('R.spatial.field.copy2',"R.spatial.field.group.copy2", "R.spatial.field.repl.copy2")
-#R_s_index$R.spatial.field.group = pmax(1, R_s_index$R.spatial.field.group-1) #lag the time by 1
-
-stack_R_est = inla.stack(data = list(R = BlackSmokePrefData2$R, #for single model
-                                     alldata = cbind(NA,BlackSmokePrefData2$R, NA),
-                                     Ntrials = rep(1,times = length(BlackSmokePrefData2$R))), #for joint model
-                         A = list(A_proj,A_proj,A_proj,1),
-                         effects= list(c(R_s_index, list(R.Intercept = 1)),
-                                       c(R_s_index_copy, list(R.Intercept_copy = 1)),
-                                       c(R_s_index_copy2, list(R.Intercept_copy2 = 1)),
-                                       cov_R),
-                         tag = 'R_est')
+# stack_R_est = inla.stack(data = list(R = BlackSmokePrefData2$R, #for single model
+#                                      alldata = cbind(NA,BlackSmokePrefData2$R, NA),
+#                                      Ntrials = rep(1,times = length(BlackSmokePrefData2$R))), #for joint model
+#                          A = list(A_proj,A_proj,A_proj,1),
+#                          effects= list(c(R_s_index, list(R.Intercept = 1)),
+#                                        c(R_s_index_copy, list(R.Intercept_copy = 1)),
+#                                        c(R_s_index_copy2, list(R.Intercept_copy2 = 1)),
+#                                        cov_R),
+#                          tag = 'R_est')
 
 
 cov_R_expand = data.frame(R_lag = data_expand$R_lag,
@@ -263,9 +263,9 @@ cov_R_expand = data.frame(R_lag = data_expand$R_lag,
                           R_copyind = c(1:length(BlackSmokePrefData2$bsmoke), rep(NA, times = dim(data_expand)[1] - length(BlackSmokePrefData2$bsmoke))))
 
 stack_R_est_expand = inla.stack(data = list(R = data_expand$R, #for single model
-                                            alldata = cbind(NA,data_expand$R,NA,NA),
-                                            Ntrials = rep(1,times = length(data_expand$R))), #for joint model
-                                A = list(A_proj_expand,A_proj_expand,A_proj_expand,1),
+                                            alldata = cbind(NA, data_expand$R, NA, NA),
+                                            Ntrials = rep(1, times = length(data_expand$R))), #for joint model
+                                A = list(A_proj_expand, A_proj_expand, A_proj_expand, 1),
                                 effects= list(c(R_s_index, list(R.Intercept = 1)),
                                               c(R_s_index_copy, list(R.Intercept_copy = 1)),
                                               c(R_s_index_copy2, list(R.Intercept_copy2 = 1)),
@@ -298,11 +298,11 @@ s_index_copy_dummy3$spatial.field.group.copy.dummy3 = c(rep(1,mesh$n), s_index_c
 #w = c(w, rep(-1, nyears*mesh$n))
 #dummy_var = 1:(nyears*mesh$n)
 
-cov_dummy2_expand = data.frame(spatial_ind_dummy = c(rep(1:no_sites, times = no_T), no_sites + rep(1:number_unvisited_nodes_per_year, times = no_T)), # Only estimate random effects for site locations
-                               spatial_ind_dummy2 = dim(data_expand)[1]/no_T + c(rep(1:no_sites, times = no_T), no_sites+rep(1:number_unvisited_nodes_per_year, times = no_T)),
-                               time_dummy = c(((data_expand$year-65)/no_T)[1:(dim(data_expand)[1]/no_T)], ((data_expand$year-65)/no_T)[1:((dim(data_expand)[1]/no_T)*(no_T-1))]),
-                               spatial.field.dummy2 = 1:dim(data_expand)[1],
-                               spatial.field.repl.dummy2 = rep(1, times = dim(data_expand)[1]))
+# cov_dummy2_expand = data.frame(spatial_ind_dummy = c(rep(1:no_sites, times = no_T), no_sites + rep(1:number_unvisited_nodes_per_year, times = no_T)), # Only estimate random effects for site locations
+#                                spatial_ind_dummy2 = dim(data_expand)[1]/no_T + c(rep(1:no_sites, times = no_T), no_sites+rep(1:number_unvisited_nodes_per_year, times = no_T)),
+#                                time_dummy = c(((data_expand$year-65)/no_T)[1:(dim(data_expand)[1]/no_T)], ((data_expand$year-65)/no_T)[1:((dim(data_expand)[1]/no_T)*(no_T-1))]),
+#                                spatial.field.dummy2 = 1:dim(data_expand)[1],
+#                                spatial.field.repl.dummy2 = rep(1, times = dim(data_expand)[1]))
 
 
 cov_dummy_est = data.frame(spatial_ind_dummy = rep(1:no_sites, times = no_T),
@@ -311,9 +311,9 @@ cov_dummy_est = data.frame(spatial_ind_dummy = rep(1:no_sites, times = no_T),
                            spatial.field.dummy2 = 1:length(BlackSmokePrefData2$bsmoke),
                            spatial.field.repl.dummy2 = rep(1, times = length(BlackSmokePrefData2$bsmoke)))
 
-cov_dummy_expand = data.frame(spatial_ind_dummy = c(rep(1:no_sites, times = no_T),rep(NA, times = dim(data_expand)[1] - (no_sites*no_T))), # Only estimate random effects for site locations
-                              spatial_ind_dummy2 = no_sites + c(rep(1:no_sites, times = no_T),rep(NA, times = dim(data_expand)[1] - (no_sites*no_T))),
-                              time_dummy = c(rep(sort(unique((data_expand$year-65)/no_T))[1], times = no_sites), rep(sort(unique((data_expand$year-65)/no_T))[1:(no_T-1)], each = no_sites),rep(sort(unique((data_expand$year-65)/no_T))[c(1,1:(no_T-1))], each = (dim(data_expand)[1] - (no_sites*no_T))/no_T )))
+# cov_dummy_expand = data.frame(spatial_ind_dummy = c(rep(1:no_sites, times = no_T),rep(NA, times = dim(data_expand)[1] - (no_sites*no_T))), # Only estimate random effects for site locations
+#                               spatial_ind_dummy2 = no_sites + c(rep(1:no_sites, times = no_T),rep(NA, times = dim(data_expand)[1] - (no_sites*no_T))),
+#                               time_dummy = c(rep(sort(unique((data_expand$year-65)/no_T))[1], times = no_sites), rep(sort(unique((data_expand$year-65)/no_T))[1:(no_T-1)], each = no_sites),rep(sort(unique((data_expand$year-65)/no_T))[c(1,1:(no_T-1))], each = (dim(data_expand)[1] - (no_sites*no_T))/no_T )))
 
 stack_dummy_est = inla.stack(data = list(dummy2 = rep(0, times = length(BlackSmokePrefData2$bsmoke)), #single model
                                          alldata = cbind(rep(NA, times = length(BlackSmokePrefData2$bsmoke)),
@@ -325,17 +325,17 @@ stack_dummy_est = inla.stack(data = list(dummy2 = rep(0, times = length(BlackSmo
                              effects= list(cov_dummy_est),
                              tag = 'dummy_est')
 
-# This is for copying the random intercepts and slopes across
-stack_dummy2_expand = inla.stack(data = list(dummy2 = rep(0, times = dim(data_expand)[1]), #single model
-                                             alldata = cbind(rep(NA, times = dim(data_expand)[1]),
-                                                             rep(NA, times = dim(data_expand)[1]),
-                                                             rep(NA, times = dim(data_expand)[1]),
-                                                             rep(0, times = dim(data_expand)[1])),
-                                             Ntrials = rep(0,times = dim(data_expand)[1])), #joint model
-                                 A = list(1),
-                                 effects= list(cov_dummy2_expand),
-                                 tag = 'dummy2_expand')
-print('stack dummy2 expand complete')
+# # This is for copying the random intercepts and slopes across
+# stack_dummy2_expand = inla.stack(data = list(dummy2 = rep(0, times = dim(data_expand)[1]), #single model
+#                                              alldata = cbind(rep(NA, times = dim(data_expand)[1]),
+#                                                              rep(NA, times = dim(data_expand)[1]),
+#                                                              rep(NA, times = dim(data_expand)[1]),
+#                                                              rep(0, times = dim(data_expand)[1])),
+#                                              Ntrials = rep(0,times = dim(data_expand)[1])), #joint model
+#                                  A = list(1),
+#                                  effects= list(cov_dummy2_expand),
+#                                  tag = 'dummy2_expand')
+# print('stack dummy2 expand complete')
 
 A_dummy = Diagonal(mesh$n*no_T)#, Matrix(0, nrow = length(sim_data_expand$Y_obs)-(mesh$n*nyears)), ncol = mesh$n*nyears)
 stack_dummy_est_expand = inla.stack(data = list(dummy = rep(0, times = mesh$n*no_T),#,rep(NA, times = (length(sim_data$Y_obs)-(mesh$n*nyears)) )), #single model
