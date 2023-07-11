@@ -41,7 +41,7 @@ mod1 <- readRDS('./Reproducibility/Mod3_V5_superhighresmesh_regular_eblaplace.rd
 ### Sampling from Posterior distribution ###
 ############################################
 # Creating Samples
-m_samples = 1000
+m_samples = 200
 # The paper uses 1000, but we suggest running only 100 to save memory
 
 # Do we want to sample from the model now, or load precompiled samples?
@@ -70,8 +70,8 @@ proj_grid = inla.mesh.projector(mesh, xlim = range(BlackSmokePrefData2$east),
 
 # Find all locations in the inla.projector lattice that fall outside of mainland Great Britain
 points <- SpatialPoints(coords = proj_grid$lattice$loc*sd_x,
-                        proj4string=CRS(proj4string(region_GB)))
-table(xy.in <- gContains(region_GB,points, byid=T))
+                        proj4string = CRS(proj4string(region_GB)))
+table(xy.in <- gContains(region_GB, points, byid=T))
 
 # Creating the A projector Matrix 
 A.grid2 = inla.spde.make.A(mesh,
