@@ -5,15 +5,16 @@ library(dplyr)
 # Read data from each year (from 1980 to 2022) and combine the PM10 records ========================
 
 data_path <- "/home/xinglong/Downloads/annual_by_monitor/"
+result_path <- "/home/xinglong/git_local/spacial_time/PM10/"
 
 annul_records <- list.files(data_path, pattern="*.json")
 
-PM10s <- NULL
+PM10s_raw <- NULL
 
 for (annual_record in annul_records) {
   record <- read_json(sprintf("%s%s", data_path, annual_record))$Data %>%
     bind_rows()
-  PM10s <- bind_rows(PM10_all, record)
+  PM10s_raw <- bind_rows(PM10s_raw, record)
 }
 
 
@@ -22,55 +23,53 @@ for (annual_record in annul_records) {
 # Make sure that the time is from 1985 --- 2022
 stopifnot(
   length(
-    setdiff(unique(PM10s$year), seq(1985, 2022))
+    setdiff(unique(PM10s_raw$year), seq(1985, 2022))
     ) == 0
   )
 
 # Make sure that all measurements is from California
 stopifnot(
-  all(PM10s$state == 'California')
+  all(PM10s_raw$state == 'California')
 )
 
 # Make sure that all measurements is PM10
 stopifnot(
-  all(PM10s$parameter == "PM10 Total 0-10um STP")
+  all(PM10s_raw$parameter == "PM10 Total 0-10um STP")
 )
 
 # Make sure that all records are measured in the same unit
 stopifnot(
-  length(unique(PM10s$units_of_measure)) == 1
+  length(unique(PM10s_raw$units_of_measure)) == 1
 )
 
 # Some information of the data
-print(sprintf("Total number of records: %s", dim(PM10s)[1]))
-print(sprintf("Total number of sites in California: %s", length(unique(PM10s$site_number))))
+print(sprintf("Total number of records: %s", dim(PM10s_raw)[1]))
+print(sprintf("Total number of sites in California: %s", length(unique(PM10s_raw$site_number))))
+
+saveRDS(PM10s_raw, sprintf("%sPM10s_raw.rds", result_path))
 
 
 # Prepare the data for model fitting ===============================================================
 
-PM10s <- select(PM10s, c("site_number",
-                         "poc",
-                         "latitude",
-                         "longitude",
-                         "year",
-                         "event_type",
-                         "observation_count",
-                         "observation_percent",
-                         "validity_indicator",
-                         "valid_day_count",
-                         "required_day_count",
-                         "exceptional_data_count",
-                         "null_observation_count",
-                         "certification_indicator",
-                         "arithmetic_mean",
-                         "standard_deviation",
-                         "local_site_name",
-                         "county",
-                         "city",
-                         "cbsa_code",
-                         "cbsa"))
+# Descriptions of data each column is in 
+# https://aqs.epa.gov/aqsweb/airdata/FileFormats.html#_annual_summary_files
 
-result_path <- "/home/xinglong/git_local/spacial_time/PM10/PM10s.rds"
-saveRDS(PM10s, result_path)
+PM10s <- select(PM10s_raw, c("site_number",
+                             "poc",
+                             "latitude",
+                             "longitude",
+                             "year",
+                             "event_type",
+                             "arithmetic_mean"))
+
+saveRDS(PM10s, sprintf("%sPM10s.rds", result_path))
+
+# Remove Extreme events
+
+PM10s <- filter(PM10s, event_type %in% c("No Events", 
+                                         "Events Excluded", 
+                                         "Concurred Events Excluded"))
+
+
 
 
