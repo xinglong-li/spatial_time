@@ -1,24 +1,20 @@
-<<<<<<< HEAD
 *.swp
 *.swo
 *.swn
 *.swm
-*.Rproj.user
 *.Rhistory
 *.RData
 *.RDataTmp
 *.Ruserdata
 *.dbf
 Data/
-*.rds
 *.asc
 *.RData
 *.zip
-.Rproj.user
 *.prj
-=======
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
->>>>>>> f163708cb3740496bb0c73550a6e6067f84fa393
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.gz
