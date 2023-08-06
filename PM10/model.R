@@ -122,6 +122,7 @@ data_expand[, "year"] <- rep(sort(unique(PM10s$year)), each = number_unvisited_n
 data_expand <- rbind(PM10s, data_expand)
 data_expand <- as.data.frame(data_expand)
 
+
 # Create the stack =================================================================================
 
 # The stack for estimating observation process y ---------------------------------------------------
@@ -245,7 +246,7 @@ stack_dummy_est_expand = inla.stack(
                               rep(NA, times = mesh$n * no_T),
                               rep(0, times = mesh$n * no_T),
                               rep(NA, times = mesh$n * no_T)),
-              Ntrials = rep(0,times = mesh$n*no_T)), #joint model
+              Ntrials = rep(0, times = mesh$n*no_T)), #joint model
   A = list(A_dummy, A_dummy, A_dummy, A_dummy),
   effects= list(c(s_index_dummy),
                 c(s_index_copy_dummy),
@@ -260,7 +261,8 @@ stack_joint2 <- inla.stack(stack_y_est_expand,
                            stack_dummy_est_expand,
                            stack_dummy_est)
 
-# The formula --------------------------------------------------------------------------------------
+
+# The formula ======================================================================================
 
 formula_joint2 = alldata ~ -1 + Intercept +
   f(spatial.field, model = spde_obj) + #spatial.field.group) +
@@ -284,7 +286,8 @@ formula_joint2 = alldata ~ -1 + Intercept +
   f(spatial_ind_dummy, copy = "spatial_ind", fixed = T) +
   f(spatial_ind_dummy2, time_dummy, copy = 'spatial_ind', fixed = T)
 
-# Fit the model ------------------------------------------------------------------------------------
+
+# Fit the model ====================================================================================
 
 theta.ini2 <- c(2.95712439, -0.39504940, -0.02055101, -2.30589883, -2.52425155, -2.22719145, -0.52338512,
                 -2.22312867, -0.38897875,  0.93644135,  0.63899640,  0.51169121, -0.10588640, -2.10631419,
