@@ -1,3 +1,4 @@
+*.DS_Store
 *.swp
 *.swo
 *.swn
@@ -18,3 +19,4 @@ Data/
 *.log
 *.out
 *.gz
+.Rproj.user

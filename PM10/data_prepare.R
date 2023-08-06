@@ -78,7 +78,7 @@ PM10s <- dplyr::select(PM10s_raw, c("site_number",
                            "Events Excluded", 
                            "Concurred Events Excluded"))
 
-saveRDS(PM10s, sprintf("%sPM10s_CA_selected.rds", result_path))
+# saveRDS(PM10s, sprintf("%sPM10s_CA_selected.rds", result_path))
 
 
 # Convert coordinates of the data ==================================================================
@@ -142,7 +142,7 @@ PM10s_summary <- group_by(PM10s_utm, site_number, year) %>%
             east = mean(E))
 print(PM10s_summary, n = 100)
 
-saveRDS(PM10s_summary, sprintf("%sPM10s_CA_summary.rds", result_path))
+# saveRDS(PM10s_summary, sprintf("%sPM10s_CA_summary.rds", result_path))
 
 
 # Import the border map of California ==============================================================
@@ -165,7 +165,7 @@ PM10s_summary_scaled <- PM10s_summary
 PM10s_summary_scaled$north <- PM10s_summary$north / 100
 PM10s_summary_scaled$east <- PM10s_summary$east / 100
 
-saveRDS(PM10s_summary_scaled, sprintf("%sPM10s_CA_summary_scaled.rds", result_path))
+# saveRDS(PM10s_summary_scaled, sprintf("%sPM10s_CA_summary_scaled.rds", result_path))
 
 # Re-scale coordinates of CA boundary
 #Extract coordinates and put them in a list
@@ -217,10 +217,10 @@ print(arrange(filter(PM10s, site_number == "0022"), year), n=100)
 # So we remove these 2 sites at all, since they only have 50 + 22 = 72 records out of 8566 records
 
 PM10s <- filter(PM10s, ! site_number %in% c("0030", "0022"))
-saveRDS(PM10s, sprintf("%sPM10s_CA_selected.rds", result_path))
+# saveRDS(PM10s, sprintf("%sPM10s_CA_selected.rds", result_path))
 
 PM10s_summary <- filter(PM10s_summary, ! site_number %in% c("0030", "0022"))
-saveRDS(PM10s_summary, sprintf("%sPM10s_CA_summary.rds", result_path))
+# saveRDS(PM10s_summary, sprintf("%sPM10s_CA_summary.rds", result_path))
 
 PM10s_summary_scaled <- filter(PM10s_summary_scaled, ! site_number %in% c("0030", "0022"))
 saveRDS(PM10s_summary_scaled, sprintf("%sPM10s_CA_summary_scaled.rds", result_path))
@@ -232,25 +232,9 @@ hist(PM10s_summary_scaled$annual_mean)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ##################################################
-# # Use Annual Summary Data Files From The Website #
-# ##################################################
+# ##################################################################################################
+# # Use Annual Summary Data Files From The Website #################################################
+# ##################################################################################################
 # 
 # # The annual summary data file is similar to that from downloaded json files, but are not exactly same.
 # # After filtering out the extreme events, there are 8451 raws in total from 1985 to 2022 in the annual summary data.

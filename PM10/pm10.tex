@@ -1,0 +1,12 @@
+\section{PM10 in California}
+
+\subsection{The data}
+A few data cleaning steps were carried out before fitting the models. Due to the right skewness of 
+the PM10 observation distribution, we applied the natural logarithmic transformation to the values
+to make the observation more Gaussian in shape. Before the log transformation, we firstly divide
+each value by mean of all recorded values to make the response dimensionless.
+We scale the Eastings and Northings coordinates and the unit is 100 km. We scaled the years to
+lie in the interval $[0, 1]$ to stabilize the temporal polynomials used in later analysis.
+
+\subsection{Modeling}
+We build one model from the general framework introduced earlier.
