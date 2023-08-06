@@ -9,4 +9,63 @@ We scale the Eastings and Northings coordinates and the unit is 100 km. We scale
 lie in the interval $[0, 1]$ to stabilize the temporal polynomials used in later analysis.
 
 \subsection{Modeling}
-We build one model from the general framework introduced earlier.
+We build one model from the general framework introduced earlier. Let $t_j^{\star}$ denote 
+the $j$th time-scaled observations that lie in the interval $[0, 1]$.
+
+The model for the observation process is
+\[
+Y_{i, j} \given R_{i, j} &\sim \distNorm(\mu_{i, j}, \sigma_{\epsilon}^2) \\
+\mu_{i, j} &= \gamma_0 + \gamma_1 t_j^{\star} + \gamma_2(t_j^{\star})^2 
+                       + b_{0, i} + b_{1, i}t_j^{\star} 
+                       + \beta_0(s_i) + \beta_1(s_i)t_j^{\star} + \beta_2(s_i)(t_j^{\star})^2 \\
+[\beta_k(s_1), \ldots, \beta_k(s_m)]^T &\distiid \distNorm(0, \Sigma(\zeta_k)) \quad 
+\text{for}\ k \in \{0, 1, 2\}, \quad \Sigma(\zeta_k) = \text{Matern}(\zeta_k) \\
+[b_{0, i}, b_{1, i}]  &\sim \distiid \distNorm(0, \Sigma_b), \quad 
+\Sigma_b = \bmat \sigma_{b, 1}^2 & \rho_b  \\ \rho_b & \sigma_{b, 2}^2 \emat, \\ 
+\theta &= (\sigma_{\epsilon}^2, \gamma, \zeta_k, \sigma_{b, 1}^2, \rho_b) \sim \text{Priors}.
+\]
+The sources of variation can be broken into three components. 
+$\gamma_0 + \gamma_1 t_j^{\star} + \gamma_2(t_j^{\star})^2$ is global variation, 
+$b_{0, i} + b_{1, i}t_j^{\star}$ is independent site-specific variation and
+$\beta_0(s_i) + \beta_1(s_i)t_j^{\star} + \beta_2(s_i)(t_j^{\star})^2$ is smooth spatially correlated
+variation. To ensure model identifiability, we enforce sum-to-zero constraints on all random effects
+($\beta$ and $b$), and we do not estimate spatially-uncorrelated random effects $b$ at locations
+with no observations. In the notation of the general framework, $q_1 = 5$. The independent 
+site-specific variations are captured by the IID random intercepts and random slopes 
+$(b_{0, i}, b_{1, i})$. 
+
+The model for site-selection process is 
+\[
+R_{i, j} &\sim \distBern(p_{i, j}) \\
+\mathrm{logit} p_{i, 1} &= \alpha_{0, 0} + \alpha_1 t_1^{\star} + \alpha_2(t_1^{\star}) 
+ + \beta_1^{\star}(t_1)  \\
+& + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b[b_{0, i} + b_{1, i}(t_1^{\star})] \\
+& + d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2], \\
+\mathrm{for} j \ne 1 \quad \mathrm{logit} p_{i, j} &= \alpha_{0, 1} + \alpha_1 t_j^{\star} + 
+\alpha_2 (t_j^{\star})^2 + \beta_1^{\star} t_j \\
+& + \alpha_{ret}r_{i, (j-1)} + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b[b_{0, i} + b_{1, i}(t_1^{\star})] \\
+& + d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2], \\
+& I_{i, j} = \ind\left[ \left( \sum_{\ell\ne i}r_{\ell, j-1}\ind (\|s_i - s_{\ell}\| < c) \right) > 0 \right],\\
+[\beta_0^{\star}(s_1), \ldots, \beta_0^{\star}(s_m)]^T &\sim \distNorm(0, \Sigma(\zeta_R)),
+\Sigma(\zeta_R) = \mathrm{Matern}(\zeta_R), \\
+[\beta_1^{\star}(t_1), \ldots, \beta_1^{\star}(t_T)]^T &\sim \mathrm{AR1}(\rho_a, \sigma_a^2), \\
+\theta_R = [\alpha, d_b, d_{\beta}, \rho_a, \sigma_a^2, \zeta_R] & \sim \mathrm{Priors}
+\]
+
+The first component is the global effects of time on the log odds of selection. We also add 
+first-order autoregressive deviation, $\beta_1^{\star}(t_j)$, from this global quadratic change.
+$\alpha_{ret}$ represents the "retention effect" reflecting how the probability a site is selected in a 
+given year changes, conditioned on its inclusion in the previous year. Here, we share all parameters
+across the two processes and allow only a unique intercept to exist between the processes.
+$\alpha_{rep}$ captures the repulsion effect. $I_{i, j}$ denote an indicator variable that determines
+whether or not another site in the network placed within a distance $c$ from site $i$ was
+was operational at the previous time $t_{j-1}$. We choose the hyperparameter $c$ to be 10 km.
+
+This is a joint model with three processes: an observation process, an initial site-placement process
+and a site-retention process. We only allow for a unique intercept to exist across the two processes, 
+sharing the remaining parameters. Only the pseudo-sites contribute a zero to the 
+Bernoulli likelihood for the site-placement across all years. Only the sites that have been removed 
+from the network in year $j$ contribute a zero to the Bernoulli likelihood for the site-retention
+process at year $j$. This ensures that no site in the network was ever reinstalled after its removal. 
