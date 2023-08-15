@@ -1,7 +1,7 @@
 library(dplyr)
 library(sp)
-library(rgeos)
 library(rgdal)
+library(reshape2)
 library(INLA)
 library(ggplot2)
 
@@ -345,7 +345,7 @@ out.joint2 <- inla(formula_joint2,
                    # control.results = list(return.marginals.random = F,
                    #                        return.marginals.predictor = F),
                    control.inla = list(h = 0.00001, int.strategy = "eb"),
-                   control.mode = list(theta = theta.ini2, restart = T),
+                   # control.mode = list(theta = theta.ini2, restart = T),
                    control.family = list(list(),
                                          list(),
                                          list(hyper = list(prec = list(initial = 20, fixed = TRUE))),
