@@ -67,7 +67,7 @@ north_grid = seq(from = min(BlackSmokePrefData$north, na.rm=T),
 
 
 # Load the regular mesh #
-mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
+mesh <- readRDS('./Data/Reproducibility/mesh_5_7.rds')
 
 plot(mesh, asp = 1)
 points(x = BlackSmokePrefData$east*sd_x, y = BlackSmokePrefData$north*sd_x, col = 'red')

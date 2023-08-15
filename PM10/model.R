@@ -3,46 +3,50 @@ library(sp)
 library(INLA)
 library(ggplot2)
 
-path <- "/home/xinglong/git_local/spacial_time/PM10/"
+path <- "/home/xinglong/git_local/spatial_time/PM10/"
 
 # Load the (scaled) locations of sites and the border of California(the unit is 100km) =============
 # The data also excludes sites that contain outlier records (site_number = 0030 and 0022).
 
-PM10s <- readRDS(sprintf("%sPM10s_CA_summary_scaled.rds", path))
-print(PM10s, n=30)
-print(sprintf("Total number of annual measurements: %s", dim(PM10s)[1]))
-print(sprintf("Total number of sites: %s", length(unique(PM10s$site_number))))
-print(sprintf("The sd of East coordinates is: %s", sd(PM10s$east)))
-print(sprintf("The sd of North coordinates is: %s", sd(PM10s$north)))
+PM10s0 <- readRDS(sprintf("%sPM10s_CA_summary_scaled.rds", path))
+print(PM10s0, n=30)
+print(sprintf("Total number of annual measurements: %s", dim(PM10s0)[1]))
+print(sprintf("Total number of sites: %s", length(unique(PM10s0$site_number))))
+print(sprintf("The sd of East coordinates is: %s", sd(PM10s0$east)))
+print(sprintf("The sd of North coordinates is: %s", sd(PM10s0$north)))
 
 CA_border <- readRDS(sprintf("%sCA_border_scaled.rds", path))
 
 plot(CA_border)
-points(PM10s$east, PM10s$north, pch=24, col='blue', cex=0.6)
+points(PM10s0$east, PM10s0$north, pch=24, col='blue', cex=0.6)
 
-hist(PM10s$annual_mean, breaks=20)
+hist(PM10s0$annual_mean, breaks=20)
 
-mean_annually <- group_by(PM10s, year) %>%
+mean_annually <- group_by(PM10s0, year) %>%
   summarise(mean_pm = mean(annual_mean)) 
 mean_pm_annually <- mean(mean_annually$mean_pm)
-PM10s$annual_mean <- log(PM10s$annual_mean) - log(mean_pm_annually)
-hist(PM10s$annual_mean, breaks=20)
+PM10s0$annual_mean <- log(PM10s0$annual_mean) - log(mean_pm_annually)
+hist(PM10s0$annual_mean, breaks=20)
 
-subsmaple_plotting_data = PM10s[which(PM10s$site_number %in% unique(PM10s$site_number)[
+subsmaple_plotting_data = PM10s0[which(PM10s0$site_number %in% unique(PM10s0$site_number)[
   sample.int(111, size = 30)]),]
 means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mean)) +
   geom_line(aes(group = site_number, colour = site_number))
 means_plot
 
-var_annually <- group_by(PM10s, year) %>% # Here the annual_mean of PM10s are already in standardized log scale
+var_annually <- group_by(PM10s0, year) %>% # Here the annual_mean of PM10s are already in standardized log scale
   summarise(var_pm = var(annual_mean))
 variance_plot =  ggplot(data = var_annually, aes(x = year, y = var_pm)) +
   geom_line() + geom_smooth() + ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
 
-no_sites = length(unique(PM10s$site_number))
-no_T = length(unique(PM10s$year))
+no_sites = length(unique(PM10s0$site_number))
+no_T = length(unique(PM10s0$year))
 
+# Reform the data so that each site has num_of_year rows, the empty records are filled with NAs
+PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annual_mean")
+PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
+PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
 
 # Build the INLA mesh =============================================================================
 
@@ -55,6 +59,26 @@ mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
 plot(mesh, asp = 1)
 points(x = PM10s$east, y = PM10s$north, col = 'red')
 mesh$n
+
+
+
+
+
+
+xy_in <- mesh$loc in ca_boundary
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Create the projector matrix ----------------------------------------------------------------------
 
@@ -69,7 +93,7 @@ stopifnot(dim(A_proj)[1] == no_sites * no_T & dim(A_proj)[2] == mesh$n * no_T)
 # Create the Matern SPDE object ====================================================================
 
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
-                                alphs = 2, 
+                                alpha = 2, 
                                 prior.range = c(0.04, 0.05),
                                 prior.sigma = c(1, 0.01),
                                 constr = T)
@@ -80,14 +104,37 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
 
 # Prepare the variables (Follow Joe Watson's work) =================================================
 
-r = 0.1 # The maximum radius of interest to be 10 km
+r <- 0.1 # The maximum radius of interest to be 10 km
+
+R <- as.numeric(!is.na(PM10s_flat[, -c(1,2,3)]))
+PM10s$R <- R
+PM10s$R_lag <- c(rep(NA, no_sites), PM10s$R[1:(dim(PM10s)[1]-no_sites)])
+
+# Compute Euclidean distances between all the sites
+Dists <- spDists(cbind(PM10s$east, PM10s$north))
+
+# Observe the locations of the sites through time
+PM10s$repulsion_ind <- 0
+counter <- no_sites + 1
+for (i in sort(unique(PM10s$year))[-1])
+{
+  # First extract the data at time i
+  Data_i =  PM10s[PM10s$year == i,]
+  
+  # print(plot(x = PM10s$east[PM10s$year==i & !is.na(PM10s$annual_mean)],
+  #            y = PM10s$north[PM10s$year==i & !is.na(PM10s$annual_mean)],
+  #            xlab = i, xlim = range(PM10s$east), ylim = range(PM10s$north)))
+  
+  # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it
+  PM10s$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(Dists[, which(Data_i$R_lag==1)] < r) > 0
+  counter = counter + no_sites
+}
 
 # Find the mesh indices that correspond to R = 1, then we can try to predict at mesh locations elsewhere
 # by pretending R = 0 to see that effect is.
 # First obtain the mesh locations associated with each observation
 mesh_obs_ind <- which(A_proj > 0, arr.ind = TRUE)[, 2]
-number_unvisited_nodes <- mesh$n * no_T - length(unique(mesh_obs_ind)) # This is not correct, since sites are coded differently here from Joes work,
-# in Joe's work, the sites id also includes the year.
+number_unvisited_nodes <- mesh$n * no_T - length(unique(mesh_obs_ind))
 unvisited_nodes <- which(! (1:(mesh$n*no_T) %in% unique(mesh_obs_ind)))
 
 stopifnot(! (unvisited_nodes[1] %in% unique(mesh_obs_ind)))
@@ -102,15 +149,18 @@ A_proj_expand <- rbind(A_proj, Ind_mat)
 
 # Expand the Y with NAs and R with number_unvisited_nodes 0s.
 number_unvisited_nodes_per_year <- number_unvisited_nodes / no_T
-data_expand <- matrix(NA, nrow = number_unvisited_nodes_per_year, ncol = dim(PM10s)[2])
+data_expand <- matrix(NA, nrow = number_unvisited_nodes, ncol = dim(PM10s)[2])
+data_expand = as.array(data_expand)
 colnames(data_expand) <- names(PM10s)
-data_expand[, "east"] <- rep(mesh$loc[unvisited_nodes], times = no_T)
-data_expand[, "north"] <- rep(mesh$loc[], times = no_T)
+data_expand[, 'east'] <- rep(mesh$loc[unvisited_nodes[1:number_unvisited_nodes_per_year], 1], times = no_T)
+data_expand[, 'north'] <- rep(mesh$loc[unvisited_nodes[1:number_unvisited_nodes_per_year], 2], times = no_T)
+data_expand[, 'repulsion_ind'] <- 0
 # Put a 0 in the unvisited nodes if and only if they lie inside the GB boundary. Else put NA
-data_expand[, "R"] <- rep(ifelse(xy_in == 1, 0, NA)[unvisited_nodes[1:number_unvisited_nodes_per_year]], 
+data_expand[, 'R'] <- rep(ifelse(xy_in == 1, 0, NA)[unvisited_nodes[1:number_unvisited_nodes_per_year]], 
                           times = no_T)
-data_expand[, "R_lag"] <- c(rep(NA, number_unvisited_nodes_per_year), 
-                            rep(0, number_unvisited_nodes_per_year*(no_T - 1)))
+data_expand[, 'R_lag'] <- c(rep(NA, number_unvisited_nodes_per_year), 
+                            rep(0, number_unvisited_nodes_per_year*(no_T - 1)) )
+
 # Map the repulsion onto the nodes 
 data_expand[, "repulsion_ind"] <- 0
 for (i in sort(unique())) {

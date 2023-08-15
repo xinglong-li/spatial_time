@@ -139,7 +139,10 @@ PM10s_utm <- bind_rows(PM10s_nad83_utm, PM10s_wgs84_utm) %>%
 PM10s_summary <- group_by(PM10s_utm, site_number, year) %>%
   summarise(annual_mean = mean(arithmetic_mean),
             north = mean(N),
-            east = mean(E))
+            east = mean(E)) %>%
+  mutate(north = mean(north[site_number == site_number]),
+         east = mean(east[site_number == site_number]))
+
 print(PM10s_summary, n = 100)
 
 # saveRDS(PM10s_summary, sprintf("%sPM10s_CA_summary.rds", result_path))
