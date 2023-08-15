@@ -5,7 +5,7 @@ library(reshape2)
 library(INLA)
 library(ggplot2)
 
-path <- "/home/xinglong/git_local/spatial_time/PM10/"
+path <- "./PM10/"
 
 # Load the (scaled) locations of sites and the border of California(the unit is 100km) =============
 # The data also excludes sites that contain outlier records (site_number = 0030 and 0022).
@@ -68,8 +68,8 @@ proj4string(mesh_loc) <- proj4string(CA_border)
 
 xy_in <- over(mesh_loc, CA_border)$REGION
 xy_in <- ! is.na(xy_in)
-# plot(mesh, asp = 1)
-# points(x = mesh_loc$north[xy_in], y = mesh_loc$east[xy_in], col = 'red')
+plot(mesh, asp = 1)
+points(x = mesh_loc$north[xy_in], y = mesh_loc$east[xy_in], col = 'red')
 
 # Create the projector matrix ----------------------------------------------------------------------
 
