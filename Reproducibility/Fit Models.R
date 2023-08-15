@@ -9,7 +9,7 @@ library(ggplot2)
 
 # load data #
 load("./Reproducibility/Data2Joe.RData")
-xy_in = readRDS("./Reproducibility/xy_in.rds") # load the indicator telling us if the mesh vertices lie in GB
+xy_in = readRDS("./Data/Reproducibility/xy_in.rds") # load the indicator telling us if the mesh vertices lie in GB
 
 # The columns are: site name, x, y (both in British National Grid),
 # black smoke by year (mu gm/3) where NA means it wasn’t measured.

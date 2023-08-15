@@ -1,5 +1,7 @@
 library(dplyr)
 library(sp)
+library(rgeos)
+library(rgdal)
 library(INLA)
 library(ggplot2)
 
@@ -60,25 +62,14 @@ plot(mesh, asp = 1)
 points(x = PM10s$east, y = PM10s$north, col = 'red')
 mesh$n
 
+mesh_loc <- data.frame("north" = mesh$loc[, 1], "east" = mesh$loc[, 2])
+coordinates(mesh_loc) <- ~ north + east
+proj4string(mesh_loc) <- proj4string(CA_border)
 
-
-
-
-
-xy_in <- mesh$loc in ca_boundary
-
-
-
-
-
-
-
-
-
-
-
-
-
+xy_in <- over(mesh_loc, CA_border)$REGION
+xy_in <- ! is.na(xy_in)
+# plot(mesh, asp = 1)
+# points(x = mesh_loc$north[xy_in], y = mesh_loc$east[xy_in], col = 'red')
 
 # Create the projector matrix ----------------------------------------------------------------------
 
@@ -160,13 +151,13 @@ data_expand[, 'R'] <- rep(ifelse(xy_in == 1, 0, NA)[unvisited_nodes[1:number_unv
                           times = no_T)
 data_expand[, 'R_lag'] <- c(rep(NA, number_unvisited_nodes_per_year), 
                             rep(0, number_unvisited_nodes_per_year*(no_T - 1)) )
-
 # Map the repulsion onto the nodes 
 data_expand[, "repulsion_ind"] <- 0
-for (i in sort(unique())) {
-  Dists <- spDists(x = data_expand[, c("east", "north")],
-                   y = PM10s[PM10s$R_lag == 1 & PM10s$year == i, c("east", "north")])
-  data_expand[, "repulsion_ind"] <- as.numeric(rowSums(Dists < r) > 0)
+for(i in sort(unique(PM10s$year))[-1])
+{
+  Dists <- spDists(x = data_expand[, c('east','north')], 
+                   y = PM10s[PM10s$R_lag == 1 & PM10s$year == i, c('east', 'north')])
+  data_expand[, 'repulsion_ind'] <- as.numeric(rowSums(Dists < r) > 0)
 }
 data_expand[, "year"] <- rep(sort(unique(PM10s$year)), each = number_unvisited_nodes_per_year)
 data_expand <- rbind(PM10s, data_expand)
@@ -182,7 +173,7 @@ s_index <- inla.spde.make.index(name = "spatial.field",
                                 n.group = no_T)
 
 s_index_copy <- s_index
-names(s_index_copy) <- c("spatial.filed.copy", "spatial.field.group.copy", "spatial.field.repl.copy")
+names(s_index_copy) <- c("spatial.field.copy", "spatial.field.group.copy", "spatial.field.repl.copy")
 
 s_index_copy2 <- s_index
 names(s_index_copy2) <- c("spatial.field.copy2", "spatial.field.group.copy2", "spatial.field.repl.copy2")
@@ -253,7 +244,7 @@ names(s_index_copy_dummy) = c(
   "spatial.field.copy.dummy", "spatial.field.group.copy.dummy", "spatial.field.repl.copy.dummy")
 # add mesh$n 1's to the beginning as site selection is initially at time 1 #
 s_index_copy_dummy$spatial.field.group.copy.dummy = c(
-  rep(1, mesh$n), s_index_copy_dummy$spatial.field.group.copy.dummy[1:((mesh$n) * (no_T-1))])
+  rep(1, mesh$n), s_index_copy_dummy$spatial.field.group.copy.dummy[1:(mesh$n) * (no_T-1)])
 
 s_index_copy_dummy2 = s_index
 names(s_index_copy_dummy2) = c(
@@ -322,7 +313,7 @@ formula_joint2 = alldata ~ -1 + Intercept +
   f(spatial.field.copy, I(spatial.field.group.copy / no_T), model = spde_obj) +
   f(spatial.field.copy2, I((spatial.field.group.copy2 / no_T)^2), model = spde_obj) +
   R_lag + year + year_2 + yearR + yearR_2 + repulsion_ind +
-  f(R_year, model = "ar1", hyper = list(theta1 = list(prior = "pcprec", param=c(2,0.01)))) +
+  f(R_year, model = "ar1", hyper = list(theta1 = list(prior = "pcprec", param=c(2, 0.01)))) +
   I(R_year == 1 / no_T) +
   f(spatial.field.dummy, I(-spatial.field.repl.dummy), model = "iid", 
     hyper = list(prec = list(initial = -20, fixed = TRUE))) +
@@ -351,8 +342,8 @@ out.joint2 <- inla(formula_joint2,
                    control.compute = list(dic = F, config = T, cpo = F),
                    control.fixed = list(mean = list(Intercept = 1, default = 0),
                                         prec = list(Intercept = 0.25, default = 0.001)),
-                   control.results = list(return.marginals.random = F,
-                                          return.marginals.predictor = F),
+                   # control.results = list(return.marginals.random = F,
+                   #                        return.marginals.predictor = F),
                    control.inla = list(h = 0.00001, int.strategy = "eb"),
                    control.mode = list(theta = theta.ini2, restart = T),
                    control.family = list(list(),
