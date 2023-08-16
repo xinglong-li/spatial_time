@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # Preferential Sampling in Environmental Networks
 
 This package present a general framework for detecting the preferential
