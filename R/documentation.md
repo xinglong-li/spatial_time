@@ -1,3 +1,15 @@
+## API
+
+### Input:
+
+This model fits 2 mixed effects model, one for observation and one for palcement.
+Each model is a mixed effects model, so the input should be :
+ - one dataframe for fixed effects of regression
+ - one dataframe for random effects of regression
+ 
+ - one dataframe for fixed effects of palcement 
+ - one dataframe for random effects of palcement
+
 ## Steps in model fitting:
 
 ### 1. Formula decode/encode
