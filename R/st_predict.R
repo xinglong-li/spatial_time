@@ -1,4 +1,44 @@
 
+# Make spatial prediction ==========================================================================
+
+spatial_predict <- function(st_mesh, 
+) {
+  # predict the marginal distribution of linear predictor, which is 
+  # computationally expensive.
+  A_pred <- inla.spde.make.A(mesh = st_mesh,
+                             loc = locations_to_be_predicted,
+                             group = i_day, # select the time point for prediction
+                             n.group = n_days)
+  
+  stack_pred_A <- list(A_pred, 1)
+  stack_pred_effects <- list(c(grid_index, list(Intercept = 1)),
+                             list(covariate_matrix))
+  stack_pred <- inla.stack(data = list(y = NA),
+                           A = stack_pred_A,
+                           effects = stack_pred_effects,
+                           tag = "prediction")
+  stack_joint <- inla.stack(stack_est, stack_pred)
+  pred_output <- inla(formula = st_formula,
+                      family = "",
+                      data = inla.stack.data(stack_join, spde=st_spde),
+                      control.predictor = list(A = inla.stack.A(stack_join),
+                                               compute = TRUE),
+                      control.mode = list(theta = fitted$mode$theta,
+                                          restart = FALSE),
+                      quantiles = NULL, # save space
+                      control.results = list(return.marginals.random = FALSE, # Save space
+                                             return.marginals.predictor = FALSE)
+  )
+  # To obtain the prediction of the data for the selected day, 
+  # We just need to extract the posterior marginals of the linear predictor
+  index_pred <- inla.stack.index(stack, "prediction")$data
+  lp_marginals <- output$marginals$linear.predictor[index_pred] # or $fitted.values[index_pred]
+  lp_mean <- unlist(lapply(lp_marginals,
+                           function(x) inla.emarginal(exp, x)))
+  lp_grid_mean <- matrix(lp_mean, n_x, n_y, byrow = T)
+}
+
+
 spatial_predict <- function() {
   # If the linear predictor marginal distributions are not necessary,
   # a less computationally heavy solution consists in projecting the latent field 
@@ -19,7 +59,7 @@ spatial_predict <- function() {
                       quantiles = NULL,
                       control.results = list(return.marginals.random = FALSE,
                                              return.marginals.predictor = FALSE)
-                      )
+  )
   index_pred <- inla.stack.index(stack_joint, "prediction")$data
   post_mean_pred <- pred_out$summary.linear.predictor[index.pred, "mean"]
   post_sd_pred <- pred_out$summary.linear.predictor[index.pred, "sd"]
@@ -44,4 +84,3 @@ spatial_predict <- function() {
   # scale by applying the inverse of the link function.
   pred.nodes <- exp(sapply(s1, function(x) x$latent[index_pred]))
 }
-

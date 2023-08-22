@@ -1,15 +1,18 @@
-
-standardize_input <- function (data, boundary) {
-  loc <- NULL
-  boundary <- NULL
+format_data <- function(data) {
   
-  if (is.null(boundary)) {
-    boundary <- inla.nonconvex.hull(points = coords)
-  }
+}
 
-  return(list(loc = loc,
-              boundary = boundary,
-              observations = observations,
-              covarites = covariates)
-         )
+
+format_locations <- function() {
+  
+}
+
+
+format_boundary <- function() {
+  
+}
+
+
+parse_formula <- function() {
+  
 }
