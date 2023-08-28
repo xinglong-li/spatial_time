@@ -11,6 +11,9 @@ spatio_temporal <- function(formula_observation,
                             cov_observation = NULL,
                             cov_selection = NULL,
                             family = "gaussian") {
+  y ~ x1 + x2 + (1 | x3) + (1 + x1 | x3)
+  cov_observation = ["iid", "dependent", "Mattern"]
+  
   # Args:
   #   formula_observation: Formula for observation model. Use the syntax of the package lmer.
   #   formula_selection:   Formula for site selection model. Use the syntax of the package lmer.

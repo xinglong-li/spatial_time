@@ -14,6 +14,7 @@ build_model <- function(formula_obs,
   #  
   
   # Create components.
+  
   model_obs <- build_observation_model(formula_obs, 
                                        data_formated)
   model_slc <- build_selection_model(formula_slc)
