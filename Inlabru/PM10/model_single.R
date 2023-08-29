@@ -38,3 +38,35 @@ PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
 
 # Build the INLA mesh =============================================================================
 
+cutoff_dist = 0.1 # 10km
+mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
+                    boundary = CA_border,
+                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, 0.3),
+                    cutoff = c(cutoff_dist, 0.3),
+                    min.angle = 26)
+plot(mesh, asp = 1)
+points(x = PM10s$east, y = PM10s$north, col = 'red')
+mesh$n
+
+
+spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
+                                alpha = 2, 
+                                prior.range = c(0.04, 0.05),
+                                prior.sigma = c(1, 0.01),
+                                constr = T)
+# alpha = 2 implies 1st order smoothness, i.e., 1 times differentialble
+# PC prior says we believe the lower 1st percentile of range if 3.4 km ?
+# 99th percentile for the GRF's standard deviation is 1. We don't believe sd higher.
+
+
+cmp <- ~ -1 + Intercept + time + I(time^2) + 
+  site_specific_0(map = time, model = "iid2d") +
+  site_specific_1(map = time, copy = site_specific_0, model = "linear") +
+  spatial_0(map = coordinates, model = spde_obj) +
+  spatial_1(map = coordinates, main = time, model = spde_obj) +
+  spatial_2(map = coordinates, main = I(time^2), model = spded_obj)
+
+bru(cmp)
+
+
+
