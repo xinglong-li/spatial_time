@@ -59,14 +59,14 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
 # 99th percentile for the GRF's standard deviation is 1. We don't believe sd higher.
 
 
-cmp <- ~ -1 + Intercept + time + I(time^2) + 
+cmp <- annual_mean ~ -1 + Intercept + time + I(time^2) + 
   site_specific_0(map = time, model = "iid2d") +
   site_specific_1(map = time, copy = site_specific_0, model = "linear") +
   spatial_0(map = coordinates, model = spde_obj) +
   spatial_1(map = coordinates, main = time, model = spde_obj) +
   spatial_2(map = coordinates, main = I(time^2), model = spded_obj)
 
-bru(cmp)
+bru(cmp, )
 
 
 
