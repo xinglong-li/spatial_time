@@ -36,7 +36,7 @@ PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annu
 PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
 PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
 
-# Build the INLA mesh =============================================================================
+# Build the INLA mesh ==============================================================================
 
 cutoff_dist = 0.1 # 10km
 mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
