@@ -20,8 +20,9 @@ print(sprintf("The sd of North coordinates is: %s", sd(PM10s0$north)))
 
 CA_border <- readRDS(sprintf("%sCA_border_scaled.rds", path))
 
-plot(CA_border)
-points(PM10s0$east, PM10s0$north, pch=24, col='blue', cex=0.6)
+# plot(CA_border)
+# points(PM10s0$east, PM10s0$north, pch=24, col='blue', cex=0.6)
+ggplot(PM10s) + gg(CA_border) + geom_point(aes(x = east, y = north)) + coord_equal()
 
 mean_annually <- group_by(PM10s0, year) %>%
   summarise(mean_pm = mean(annual_mean)) 
@@ -44,8 +45,12 @@ mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
                     offset = c(0.1, 0.2), max.edge = c(cutoff_dist, 0.3),
                     cutoff = c(cutoff_dist, 0.3),
                     min.angle = 26)
-plot(mesh, asp = 1)
-points(x = PM10s$east, y = PM10s$north, col = 'red')
+
+# plot(mesh, asp = 1)
+# points(x = PM10s$east, y = PM10s$north, col = 'red')
+
+ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_equal()
+
 mesh$n
 
 
@@ -68,9 +73,57 @@ comp <- Intercept(1) + Time(time) + Time_square(I(time^2)) +
   Spatial_1(mesh, weights = time, model = spde_obj) + 
   Spatial_2(mesh, weights = I(time^2), model = spde_obj)
 
-fit <- bru(comp, PM10s_flat, family = "gaussian")
+formula_obs <- annual_mean ~ 
+
+like_obs <- like(formula = formula_obs,
+                 data = PM10s,
+                 family = "gaussian"
+)
+
+fit_bru <- bru(comp,
+               like_obs,
+               options = list(control.inla = list(int.strategy = "eb"),
+                              bru_max_iter = 1)
+)
+
+# Predict at grid ==================================================================================
+
+grid_4pred <- data.frame(x = xs)
+
+pred_bru <- predict(fit, 
+                    grid_4pred, 
+                    x ~ exp(field + Intercept), 
+                    n.samples = 1000)
+
+ggplot(PM10s) +
+  gg(pred_bru) +
+  geom_point(data = cd, aes(x = x, y = count / exposure), cex = 2) +
+  geom_point(data = true.lambda, aes(x, y), pch = "_", cex = 9, col = "blue") +
+  coord_cartesian(xlim = c(0, 55), ylim = c(0, 6)) +
+  xlab("x") +
+  ylab("Intensity")
 
 
+# Plot the marginal pdf of individual effect, fixed or random.
+# To check the names of all effects:
+# names(fit_bru$marginals.fixed) or names(fit_bru$marginals.random)
 
+plot(fit_bru, "Intercept")
+
+# What we are interested in is the range and variance of the Matern covariance funcion, 
+# which are functions of the parameters internally used in inlabru.
+# We can look at the posterior distributions of the range parameter and the log of the variance parameters.
+
+spde.range <- spde.posterior(fit2.bru, "Spatial_0", what = "range")
+spde.logvar <- spde.posterior(fit2.bru, "Spatial_0", what = "log.variance")
+
+range.plot <- plot(spde.range)
+var.plot <- plot(spde.logvar)
+multiplot(range.plot, var.plot)
+
+
+# We can look at the posterior distributions of the Matern correlation and covariance functions as follows:
+plot(spde.posterior(fit2.bru, "field", what = "matern.correlation"))
+plot(spde.posterior(fit2.bru, "field", what = "matern.covariance"))
 
 
