@@ -4,7 +4,7 @@
 \usepackage[sort&compress]{natbib}
 
 
-\title{Copy Multiple Features in INLA / InlaBru}
+\title{Copy Multiple Features in INLA / inlabru}
 %\author{Xinglong Li \\xinglong.li@stat.ubc.ca}
 
 \begin{document}
@@ -14,19 +14,17 @@
 We are currently working to develop an R package for the preferential sampling model proposed
 by \cite{Watson2019_pref_samp} which fits an observational model and a site selection model
 that shares latent factors with the observation model. 
-The purpose of this package to facilitate the spatial prediction using the proposed preferential
+The purpose of this package is to facilitate spatial prediction using the proposed preferential
 sampling model.
 
-Given the specific form of the model (one observation model and one site-selection model), 
-we would like to restrict the input of the user to simplify the API. 
-In particular, we want the user to specify only formulas of the two models and provide the dataset. 
+Since the joint model is restricted to two mixed effects models (one for the observation process 
+and one for the site-selection process),  we would like to restrict the input of the user to simplify the API. 
+In particular, we want the user to specify only formulas of the two models in addition to the dataset. 
 Given that the two models are both mixed effects models, we would like to use the syntax
 analogous to the that of the \textbf{lme4} package.
 
 Internally, we want to convert the input of the user to proper models of \textbf{inlabru} and fit
-the model using \textbf{inlabru}. For example, one thing we might need to do is to introduce
-$q_2$ auxiliary factors and $q_2$ new models if the user-specified model wants to copy $q_2$
-factor combinations from the observation model \cref{eq:gen_y} to the site selection model \cref{eq:gen_r}.
+the model using \textbf{inlabru}.
 
 %\section{Background}
 %\cite{Watson2019_pref_samp} proposed a framework that jointly modeling the distribution of an
@@ -88,9 +86,18 @@ factor combinations from the observation model \cref{eq:gen_y} to the site selec
 %from the $Y_{i, j}$ process to exist in the linear predictor.
 
 \section{A preferential sampling model for black smoke data in British}
-\cite{Watson2019_pref_samp} introduced a specific model in the family to model the black smoke
-data in British. Let $t_j^{\star}$ denote the $j$th time-scaled observations that lie in the interval
-$[0, 1]$.
+We consider a spatio-temporal environmental process $Y_{st}$, $s\in \mcS$, $t\in \mcT$, 
+where $\mcS$ denoting the spatial domain of interest and $\mcT$ the temporal domain. 
+Spatial network designer specifies a set of time points $T \subset \mcT$ at which to observe
+$Y$ and at each time $t \in T$, a finite subset of sites $S_t \subset \mcS$ at which to do so.
+$R_{st} \in \{0, 1\}$ is a binary response for the site selection process.
+A Bayesian model is introduced for the joint distribution of the response vector $(Y_{st}, R_{st})$.
+
+By sharing random effects across the two processes, the stochastic dependence (if any) between 
+$Y_{s, t}$ and $R_{s, t}$ and be quantified.
+\cite{Watson2019_pref_samp} proposed one such preferential sampling model to analyze the 
+black smoke data in British. Let $t_j^{\star}$ denote the $j$th time-scaled observations that lie 
+in the interval $[0, 1]$.
 
 The model for the observation process is
 \[
@@ -125,61 +132,88 @@ I_{i, j} &= \ind\left[ \left( \sum_{\ell\ne i}r_{\ell, j-1}\ind (\|s_i - s_{\ell
 \theta_R = [\alpha, d_b, d_{\beta}, \rho_a, \sigma_a^2, \zeta_R] & \sim \mathrm{Priors}
 \]
 
+The latent effects appearing in the observation process $Y_{i, j}$ are allowed to exist
+in the linear predictor of the selection process $R_{i, j}$. In particular, the two linear combinations 
+of the latent effects, $b_{0, i} + b_{1, i}(t_1^{\star})$ and 
+$\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2$, from the $Y_{i, j}$ 
+process are copied across. The parameters $d_b$ and $d_{\beta}$ determine the degree to which each shared
+latent effect affects the $R$ process and therefore measure the magnitude and direction of stochastic
+dependence between the two models term-by-term. 
+
 \section{The implementation in INLA / inlabru}
-To implement the preferential sampling model defined by \cref{eq:gen_y} and \cref{eq:gen_r} 
+To implement the preferential sampling model defined by \cref{eq:bs_y} and \cref{eq:bs_r} 
 in INLA, or \textbf{inlabru}, we  are supposed to specify two models. One for the observation 
 process in the Gaussian family and one for the site selection process in the Bernoulli family.
-In particular, we want to share some linear combinations of latent factors between the observation
+Also, we want to share two linear combinations of latent factors between the observation
 model and the site selection model:
 \[
-\sum_{\ell =1}^{q_2}d_{\ell}\sum_{k=1}^{q_1}
-w_{i, j, \ell, k}\beta_k(s_i, \phi_{i, \ell, k}(t_j)), \label{eq:copied_factor}
+b_{0, i} + b_{1, i}(t_1^{\star}), \quad \text{and}\quad \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2.
 \]
-where we have $q_2$ set of factors to share, each being a linear combination of latent factors
-from the observation model. While both INLA and \textbf{inlabru} allow copying factors 
-between models, each factor (component in \textbf{inlabru}) must be copied separately and
-therefore introduce one new scale parameter for each copied factor (by setting $fixed = FALSE$). 
 
-In our model, however, we only want one scale parameter for each combination of factors, i.e., 
-we only  want $q_2$ scale parameters when copying factors combinations in \cref{eq:copied_factor}. 
-For example in the specific model \cref{eq:bs_y} and \cref{eq:bs_r} for the black smoke data, 
-the two copied factor combinations in the site selection process \cref{eq:bs_r}are 
+While both INLA and \textbf{inlabru} allow copying factors 
+between models, each factor (`component' in \textbf{inlabru}) must be copied separately and
+therefore introduce one new scale parameter for each copied factor (by setting $fixed = FALSE$). 
+In our model, however, 
+we only  want two scale parameters $d_b$ and $d_\beta$ for these two linear combinations
+of factors:
 \[
 d_b[b_{0, i} + b_{1, i}(t_1^{\star})]  \quad \text{and }\quad d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2],
 \]
 where $d_b$ and $d_{\beta}$ are two scale parameters.
-However, this is not directly achievable using the $copy$ feature in INLA or \textbf{inlabru}.
-If we use the $copy$ feature to copy each latent factor separately, 
+This is not directly achievable using the $copy$ feature in INLA or \textbf{inlabru},
+and if we use the $copy$ feature to copy each latent factor separately, 
 there will be five (instead of two) new scale parameters introduced at each site and time point. 
 
-To copy the whole set of factors in implementing the model for black smoke data, Watson's code
+\subsection{An alternative approach using auxiliary models}
+To copy the linear combinations of factors in implementing the model for black smoke data, \cite{Watson2019_pref_samp}
 introduced two auxiliary factors and two auxiliary Gaussian models in addition to the 
-original observation model and the site selection model:
+original joint model:
 \[
-0 &= - C_b +  [b_{0, i} + b_{1, i}(t_1^{\star})] \\
-0 &= - C_\beta + [\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2]
+0 &= - C_b +  [b_{0, i} + b_{1, i}(t_1^{\star})] \label{eq:bs_aux0} \\
+0 &= - C_\beta + [\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2] 
+\label{eq:bs_aux1}
 \]
-where $C_b$ and $C_\beta$ are auxiliary factors. 
-The latent factors $C_b$ and $C_\beta$ work as duplicates of the two factor combinations:
+where $C_b$ and $C_\beta$ are auxiliary latent factors. These individual factors, $b_{0, i}$, $b_{1, i}(t_1^{\star})$, $\beta_0(s_i)$, 
+$\beta_1(s_i)t_{j-1}^{\star}$, $\beta_2(s_i)(t_{j-1}^{\star})^2$, are copied separately from the 
+observation model \cref{eq:bs_y} to the  two auxiliary models, \cref{eq:bs_aux0} and 
+\cref{eq:bs_aux1}, with the argument $fixed = TRUE$. 
+
+By setting the precision parameter of the two factors $C_b$ and $C_\beta$ to be $\approx 0$ and 
+setting the precision parameter of the two Gaussian auxiliary models to be $\approx \infty$,
+the latent factors $C_b$ and $C_\beta$ duplicate of the two factor combinations:
 \[
 C_b =  b_{0, i} + b_{1, i}(t_1^{\star})\quad
 \text{and} \quad
-C_\beta = \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2
+C_\beta = \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2.
+\] 
+Given the two auxiliary models, the new model for site-selection process copies $C_b$ 
+and $C_\beta$ from \cref{eq:bs_aux0} and \cref{eq:bs_aux1} instead with the argument $fixed = FALSE$:
+\[
+\mathrm{logit}\, p_{i, 1} &= \alpha_{0, 0} + \alpha_1 t_1^{\star} + \alpha_2(t_1^{\star}) 
++ \beta_1^{\star}(t_1)  \\
+& + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b C_b + d_{\beta}C_\beta, \\
+\mathrm{for} j \ne 1 \quad \mathrm{logit}\, p_{i, j} &= \alpha_{0, 1} + \alpha_1 t_j^{\star} + 
+\alpha_2 (t_j^{\star})^2 + \beta_1^{\star} t_j \\
+& + \alpha_{ret}r_{i, (j-1)} + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b C_b + d_{\beta}C_{\beta}.
 \]
-To achieve this, the precision parameter of the two factors $C_b$ and $C_\beta$ are set to be $\approx 0$ and 
-the precision parameter of the two Gaussian auxiliary models are set to be $\approx \infty$. 
-Also, these factors $ b_{0, i}, b_{1, i}(t_1^{\star}), \beta_0(s_i), \beta_1(s_i)t_{j-1}^{\star}, \beta_2(s_i)(t_{j-1}^{\star})^2$ are copied from the observation model \cref{eq:bs_y} to the 
-two auxiliary models with $fixed = TRUE$. 
-The choice of the precision parameters make sure that $C_b$ and $C_\beta$ are precise copies 
-of the factor combinations.
 
-Now we need to fit four, instead of two models in INLA or \textbf{inlabru}. In general, the total
-number of models is $2 + q_2$.
-With the auxiliary factor $C_b$ and $C_{\beta}$,  instead of copying these two linear combinations
-of factors in the site selection model \cref{eq:bs_r}, now we copy $C_b$ and $C_{\beta}$. 
-By setting $fixed = FALSE$, two new scale parameters, $d_b$ and $d_{\beta}$ are added to
-$C_b$ and $C_{\beta}$ respectively.
+With the auxiliary models and factors, it is possible to copy the linear combination of factors 
+without introducing too many scale parameters. 
+However, this approach requires us to fit four, instead of two models in INLA(or \textbf{inlabru}), 
+and in general, more auxiliary models and factors will be required if more linear combinations 
+of factors need to be shared between the observation process and the site selection process.
 
+\section{Question}
+To simplify the API of our package so that users can use the preferential sampling model to 
+make spatial predictions easily, we want to follow the syntax of the package \textbf{lme4} and 
+ask users to only provide formulas of two mixed effects models. Inside the package, we need to 
+convert the joint model to \textbf{inlabru}(or INLA) models.  Since the approach used by 
+\cite{Watson2019_pref_samp} requires one more additional model for each linear combination 
+of factors to be copied, this increases the complexity of the code. So we wonder if there is more
+straightforward way to copy multiple / linear combination of factors  across models in INLA or 
+\textbf{inlabru}.
 	
 \bibliographystyle{apalike}
 \bibliography{spatial_time}
