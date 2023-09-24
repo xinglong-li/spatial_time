@@ -16,7 +16,7 @@ library(MASS)
 # Load in all the data used to fit the models
 load('./Reproducibility/final_mod_joint1_helper2.RData')
 # load a higher resolution mesh
-mesh <- readRDS('./Reproducibility/mesh_5_7.rds')
+mesh <- readRDS('./Data/Reproducibility/mesh_5_7.rds')
 # the stack_X_expand objects contain the dummy points situated throughout GB
 # the stack_X_est objects are restricted to the sampled locations
 # The stack_joint1 object contains only the X_'est' data objects and does not
@@ -32,7 +32,7 @@ table(stack_R_est_expand$data$data$R) # Notice the much higher number of 0's
 table(is.na(stack_y_est_expand$data$data$y)) # Notice the match
 
 # Load the P2 model corresponding to the previously loaded mesh
-mod1 <- readRDS('./Reproducibility/Mod3_V5_superhighresmesh_regular_eblaplace.rds')
+mod1 <- readRDS('./Data/Reproducibility/Mod3_V5_superhighresmesh_regular_eblaplace.rds')
 # Or load the model fit using the script Fit Models.R
 #mod1 <- readRDS('finalmod_joint2_reproduce.rds')
 
@@ -55,7 +55,7 @@ if(sample)
 if(!sample)
 {
   # To save time, we load our samples
-  samp2 = readRDS('./Reproducibility/Mod3_V5_samples_superhighresmesh_regular_eblaplace1.rds')
+  samp2 = readRDS('./Data/Reproducibility/Mod3_V5_samples_superhighresmesh_regular_eblaplace1.rds')
 }
 
 ### A matrix for projecting SPDEs ###
