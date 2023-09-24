@@ -19,8 +19,7 @@ print(sprintf("The sd of North coordinates is: %s", sd(PM10s0$north)))
 
 CA_border <- readRDS(sprintf("%sCA_border_scaled.rds", path))
 
-plot(CA_border)
-points(PM10s0$east, PM10s0$north, pch=24, col='blue', cex=0.6)
+ggplot(PM10s0) + gg(CA_border) + geom_point(aes(x = east, y = north)) + coord_equal()
 
 mean_annually <- group_by(PM10s0, year) %>%
   summarise(mean_pm = mean(annual_mean)) 
@@ -35,16 +34,32 @@ PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annu
 PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
 PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
 
+subsmaple_plotting_data = PM10s[which(PM10s$site_number %in% unique(PM10s$site_number)[
+  sample.int(111, size = 30)]), ]
+means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mean)) +
+  geom_line(aes(group = site_number, colour = site_number)) + xlab("Year") + ylab("log(PM10)")
+means_plot
+
+var_annually <- group_by(PM10s, year) %>% 
+  summarise(var_pm = var(annual_mean, na.rm = T))
+variance_plot =  ggplot(data = var_annually, aes(x = year, y = var_pm)) +
+  geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)") 
+ggtitle('A plot of the variance of the log annual means with fitted smoother')
+variance_plot
+
 # Build the INLA mesh =============================================================================
 
-cutoff_dist = 0.1 # 10km
+cutoff_dist = 0.2 # 20km
+cutoff_outer = 2 * cutoff_dist
+
 mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
                     boundary = CA_border,
-                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, 0.3),
-                    cutoff = c(cutoff_dist, 0.3),
+                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
+                    cutoff = c(cutoff_dist, cutoff_outer),
                     min.angle = 26)
-plot(mesh, asp = 1)
-points(x = PM10s$east, y = PM10s$north, col = 'red')
+
+ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
+
 mesh$n
 
 # Create the projector matrix ----------------------------------------------------------------------

@@ -72,30 +72,6 @@ mesh$n #2432 vertices
 # scale the mesh onto the transformed scale
 mesh$loc = mesh$loc / sd_x
 
-
-# Compute Euclidean distances between all the sites #
-Dists = spDists(cbind(BlackSmokePrefData$east, BlackSmokePrefData$north))
-
-# Compute R_lag - the indicator for if the site was selected at time t-1
-BlackSmokePrefData2$R_lag = c(rep(NA, no_sites), BlackSmokePrefData2$R[1:(dim(BlackSmokePrefData2)[1]-no_sites)])
-
-# Observe the locations of the sites through time #
-BlackSmokePrefData2$repulsion_ind = 0
-counter = no_sites+1
-for (i in sort(unique(BlackSmokePrefData2$year))[-1])
-{
-  # First extract the data at time i
-  Data_i =  BlackSmokePrefData2[BlackSmokePrefData2$year == i,]
-  
-  print(plot(x = BlackSmokePrefData2$east[BlackSmokePrefData2$year==i & !is.na(BlackSmokePrefData2$bsmoke)],
-             y = BlackSmokePrefData2$north[BlackSmokePrefData2$year==i & !is.na(BlackSmokePrefData2$bsmoke)],
-             xlab = i, xlim = range(BlackSmokePrefData2$east), ylim = range(BlackSmokePrefData2$north)))
-  
-  # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it
-  BlackSmokePrefData2$repulsion_ind[counter:(counter+(no_sites-1))] = rowSums(Dists[,which(Data_i$R_lag==1)] < r) > 0
-  counter = counter + no_sites
-}
-
 # create the Matern spde object for Y_grf #
 spde_obj = inla.spde2.pcmatern(mesh=mesh, alpha = 2,
                                prior.range = c(0.04,0.05),
