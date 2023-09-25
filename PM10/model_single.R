@@ -119,10 +119,11 @@ stack_y_est <- inla.stack(
 formula_naive <- y ~ -1 + Intercept +
   f(spatial.field, model = spde_obj) +
   f(spatial.field.copy, I(spatial.field.group.copy/no_T), model = spde_obj) +
-  f(spatial.field.copy2, I((spatial.field.group.copy2/no_T)^2), model = spde_obj) +
-  I(spatial.field.group/no_T) + I((spatial.field.group/no_T)^2) +
-  f(spatial_ind, model = "iid2d", n = no_sites*2, constr = TRUE) +
-  f(spatial_ind2, year, copy = "spatial_ind")
+  # f(spatial.field.copy2, I((spatial.field.group.copy2/no_T)^2), model = spde_obj) +
+  I(spatial.field.group/no_T) #+ 
+  # I((spatial.field.group/no_T)^2) +
+  # f(spatial_ind, model = "iid2d", n = no_sites*2, constr = TRUE) +
+  # f(spatial_ind2, year, copy = "spatial_ind")
 
 # Fit the model ====================================================================================
 
@@ -142,4 +143,32 @@ out.naive = inla(formula_naive, family = 'gaussian',
                  verbose = T, num.threads=20)
 
 summary(out.naive)
+
+
+
+
+
+
+
+
+# Project the map into UTM zone 10 with unit kilometer
+km_proj <- CRS("+proj=utm +zone=10 + ellps=WGS84 +units=km")
+
+locs <- SpatialPoints(PM10s[, c(3, 2)], km_proj) %>% coordinates()
+loc_wgs84_spt <- SpatialPoints(loc_wgs84, proj4string=CRS("+init=epsg:4326"))
+loc_wgs84_to_utm <- spTransform(loc_wgs84_spt, km_proj) %>% coordinates()
+
+PM10s_nad83_utm <- dplyr::mutate(PM10s_nad83, "N" = loc_nad83_to_utm[, 2],
+                                 "E" = loc_nad83_to_utm[, 1])
+PM10s_wgs84_utm <- dplyr::mutate(PM10s_wgs84, "N" = loc_wgs84_to_utm[, 2],
+                                 "E" = loc_wgs84_to_utm[, 1])
+
+PM10s_utm <- bind_rows(PM10s_nad83_utm, PM10s_wgs84_utm) %>% 
+  dplyr::select(-c("latitude", "longitude", "datum"))
+
+
+annual_mean <- PM10s$annual_mean
+comp <- annual_mean ~ Intercept(1) + Spatial_0(locs, model = spde_obj)
+fit_bru <- bru(comp, 
+              family = "gaussian")
 
