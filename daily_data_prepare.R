@@ -136,5 +136,14 @@ hist(PM10s_daily_summary_scaled$daily_mean)
 # Remove the outliers?
 
 
+# Prepare monthly measurements =====================================================================
+
+
+
+# Prepare weekly measurements ======================================================================
+
+
+
+
 
 
