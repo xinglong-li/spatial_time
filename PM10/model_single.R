@@ -4,6 +4,7 @@ library(rgdal)
 library(reshape2)
 library(INLA)
 library(ggplot2)
+library(inlabru)
 
 path <- "./PM10/"
 
@@ -62,16 +63,6 @@ ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
 mesh$n
 
-# Create the projector matrix ----------------------------------------------------------------------
-
-A_proj <- inla.spde.make.A(mesh = mesh,
-                           loc = as.matrix(cbind(PM10s$east, PM10s$north)),
-                           group = PM10s$year - 1984,
-                           n.group = no_T)
-
-stopifnot(dim(A_proj)[1] == no_sites * no_T & dim(A_proj)[2] == mesh$n * no_T)
-
-
 # Create the Matern SPDE object ====================================================================
 
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
@@ -82,6 +73,15 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
 # alpha = 2 implies 1st order smoothness, i.e., 1 times differentialble
 # PC prior says we believe the lower 1st percentile of range if 3.4 km ?
 # 99th percentile for the GRF's standard deviation is 1. We don't believe sd higher.
+
+# Create the projector matrix ----------------------------------------------------------------------
+
+A_proj <- inla.spde.make.A(mesh = mesh,
+                           loc = as.matrix(cbind(PM10s$east, PM10s$north)),
+                           group = PM10s$year - 1984,
+                           n.group = no_T)
+
+stopifnot(dim(A_proj)[1] == no_sites * no_T & dim(A_proj)[2] == mesh$n * no_T)
 
 # Create the stack =================================================================================
 
@@ -102,7 +102,8 @@ cov_y <- data.frame(
   year = rep(time, each = no_sites),
   year_2 = rep(time2, each = no_sites),
   spatial_ind = rep(1:no_sites, times = no_T),
-  spatial_ind2 = no_sites + rep(1:no_sites, times = no_T))
+  spatial_ind2 = no_sites + rep(1:no_sites, times = no_T)
+  )
 
 stack_y_est <- inla.stack(
   data = list(y = PM10s$annual_mean),
@@ -125,17 +126,19 @@ formula_naive <- y ~ -1 + Intercept +
 
 # Fit the model ====================================================================================
 
+# theta.ini = c(1.597900, -1.277423, -0.443820, -1.441220, 0.036510, -1.441336, 0.016919,
+#               4.462918, 1.437147, 4, 4, 4)
+
 out.naive = inla(formula_naive, family = 'gaussian',
                  data = inla.stack.data(stack_y_est),
                  control.predictor = list(A = inla.stack.A(stack_y_est), compute = F),
                  control.compute = list(dic=F, config = T, cpo = F),
                  control.fixed = list(mean = list(Intercept = 1, default = 0),
                                       prec = list(Intercept = 0.25, default = 0.001)),
-                 control.results = list(return.marginals.random = F,
-                                        return.marginals.predictor = F),
+                 # control.results = list(return.marginals.random = F,
+                 #                        return.marginals.predictor = F),
                  control.inla = list(h = 0.00001, strategy = "gaussian", int.strategy = 'eb'),
-                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
-                 control.mode = list(theta = theta.ini, restart=T),
+                 # control.mode = list(theta = theta.ini, restart=T),
                  verbose = T, num.threads=20)
 
 summary(out.naive)

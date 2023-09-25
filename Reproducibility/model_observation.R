@@ -137,10 +137,10 @@ out.naive = inla(formula_naive, family = 'gaussian',
                  control.compute = list(dic=F, config = T, cpo = F),
                  control.fixed = list(mean = list(Intercept = 1, default = 0),
                                       prec = list(Intercept = 0.25, default = 0.001)),
-                 control.results = list(return.marginals.random = F,
-                                        return.marginals.predictor = F),
+                 # control.results = list(return.marginals.random = F,
+                 #                        return.marginals.predictor = F),
                  control.inla = list(h = 0.00001, strategy = "gaussian", int.strategy = 'eb'),
-                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
+                 # control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
                  control.mode = list(theta = theta.ini, restart=T),
                  verbose = T, num.threads=20)
 summary(out.naive)
