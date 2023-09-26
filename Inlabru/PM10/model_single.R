@@ -70,15 +70,16 @@ ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 mesh$n
 
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
-                              alpha = 2, 
-                              prior.range = c(0.04, 0.05),
-                              prior.sigma = c(1, 0.01),
-                              constr = T)
+                                alpha = 2, 
+                                prior.range = c(0.04, 0.05),
+                                prior.sigma = c(1, 0.01),
+                                constr = T)
 # alpha = 2 implies 1st order smoothness, i.e., 1 times differentiable
 # PC prior says we believe the lower 1st percentile of range if 3.4 km?
 # 99th percentile for the GRF's standard deviation is 1. We don't believe sd higher.
 
-PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
+
+# Build inlabru model ==============================================================================
 
 # comp <- ~ Intercept(1) + Time(time) + Time_square(I(time^2)) + 
 #   Random_0(site_number, model = "iid2d") + 
@@ -87,48 +88,49 @@ PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year
 #   Spatial_1(mesh, weights = time, model = spde_obj) + 
 #   Spatial_2(mesh, weights = I(time^2), model = spde_obj)
 
-comp <- ~ Intercept(1) + Time(time) + 
-  # Random_0(site_number, model = "iid2d") + Random_1(site_number, weights = time, copy = Random_0) + 
-  Spatial_0(mesh, model = spde_obj) + Spatial_1(mesh, weights = time, model = spde_obj)
+time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 
-formula_obs <- annual_mean ~ Intercept(1) + Time(time) + 
-  # Random_0(site_number, model = "iid2d") + Random_1(site_number, weights = time, copy = Random_0) + 
-  Spatial_0(mesh, model = spde_obj) + Spatial_1(mesh, weights = time, model = spde_obj)
+km_proj <- CRS("+proj=utm +zone=10 + ellps=WGS84 +units=km")
+locs <- SpatialPoints(PM10s[, c("east", "north")], km_proj)
 
-like_obs <- like(formula = formula_obs,
-                 data = PM10s,
-                 family = "gaussian"
-)
+annual_mean <- PM10s$annual_mean
 
-fit_bru <- bru(comp,
-               like_obs,
-               options = list(control.inla = list(int.strategy = "eb"),
-                              bru_max_iter = 1
-                              )
-)
+site_number <- PM10s$site_number
 
-fit_bru <- bru(comp,
-    like(annual_mean ~ .,
-         data = PM10s,
-         family = "gaussian"))
+N <- dim(PM10s)[1]
 
+comp <- annual_mean ~ Intercept(1) + Time(time) + 
+  Random_0(site_number, model = "iid") +
+  Spatial_0(locs, model = spde_obj)
+
+comp <- annual_mean ~ Intercept(1) + Time(time) + 
+  Random_0(site_number, model = "iid2d", n = 2*N) + Random_1(site_number, weights = time, copy = "Random_0") + 
+  Spatial_0(locs, model = spde_obj) #+ Spatial_1(locs, weights = time, model = spde_obj)
+
+fit_bru <- bru(comp, family = "gaussian")
 
 # Predict at grid ==================================================================================
 
-grid_4pred <- data.frame(x = xs)
+data_4pred <- list(time = time,
+                   locs = locs,
+                   site_number = site_number)
+data_4pred <- as.data.frame(data_4pred)
 
-pred_bru <- predict(fit, 
-                    grid_4pred, 
-                    x ~ exp(field + Intercept), 
+pred_bru <- predict(fit_bru, 
+                    data_4pred, 
+                    ~ exp(Intercept + Time + Random_0 + Spatial_0), 
                     n.samples = 1000)
 
-ggplot(PM10s) +
-  gg(pred_bru) +
-  geom_point(data = cd, aes(x = x, y = count / exposure), cex = 2) +
-  geom_point(data = true.lambda, aes(x, y), pch = "_", cex = 9, col = "blue") +
-  coord_cartesian(xlim = c(0, 55), ylim = c(0, 6)) +
-  xlab("x") +
-  ylab("Intensity")
+pred_bru$year <- PM10s$year
+pred_summary <- group_by(pred_bru, year) %>%
+  summarise(annual_mean = mean(mean),
+            annual_sd = mean(sd))
+
+ggplot(pred_summary) +
+  geom_line(aes(x = year, y = annual_mean)) +
+  geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
+  xlab("Year") +
+  ylab("PM10")
 
 
 # Plot the marginal pdf of individual effect, fixed or random.
@@ -141,8 +143,8 @@ plot(fit_bru, "Intercept")
 # which are functions of the parameters internally used in inlabru.
 # We can look at the posterior distributions of the range parameter and the log of the variance parameters.
 
-spde.range <- spde.posterior(fit2.bru, "Spatial_0", what = "range")
-spde.logvar <- spde.posterior(fit2.bru, "Spatial_0", what = "log.variance")
+spde.range <- spde.posterior(fit_bru, "Spatial_0", what = "range")
+spde.logvar <- spde.posterior(fit_bru, "Spatial_0", what = "log.variance")
 
 range.plot <- plot(spde.range)
 var.plot <- plot(spde.logvar)
@@ -150,7 +152,7 @@ multiplot(range.plot, var.plot)
 
 
 # We can look at the posterior distributions of the Matern correlation and covariance functions as follows:
-plot(spde.posterior(fit2.bru, "field", what = "matern.correlation"))
-plot(spde.posterior(fit2.bru, "field", what = "matern.covariance"))
+plot(spde.posterior(fit_bru, "Spatial_0", what = "matern.correlation"))
+plot(spde.posterior(fit_bru, "Spatial_0", what = "matern.covariance"))
 
 
