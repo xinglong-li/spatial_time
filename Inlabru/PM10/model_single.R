@@ -12,7 +12,6 @@ path <- "./PM10/"
 # The data also excludes sites that contain outlier records (site_number = 0030 and 0022).
 
 PM10s0 <- readRDS(sprintf("%sPM10s_CA_summary_scaled.rds", path))
-print(PM10s0, n=30)
 print(sprintf("Total number of annual measurements: %s", dim(PM10s0)[1]))
 print(sprintf("Total number of sites: %s", length(unique(PM10s0$site_number))))
 print(sprintf("The sd of East coordinates is: %s", sd(PM10s0$east)))
@@ -59,11 +58,11 @@ mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
                     cutoff = c(cutoff_dist, cutoff_outer),
                     min.angle = 26)
 
-mesh <- fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north), 
-                        boundary = CA_border,
-                        offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                        cutoff = cutoff_dist,
-                        min.angle = 26)
+# mesh <- fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north), 
+#                         boundary = CA_border,
+#                         offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
+#                         cutoff = cutoff_dist,
+#                         min.angle = 26)
 
 ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
@@ -103,9 +102,9 @@ comp <- annual_mean ~ Intercept(1) + Time(time) +
   Random_0(site_number, model = "iid") +
   Spatial_0(locs, model = spde_obj)
 
-comp <- annual_mean ~ Intercept(1) + Time(time) + 
-  Random_0(site_number, model = "iid2d", n = 2*N) + Random_1(site_number, weights = time, copy = "Random_0") + 
-  Spatial_0(locs, model = spde_obj) #+ Spatial_1(locs, weights = time, model = spde_obj)
+# comp <- annual_mean ~ Intercept(1) + Time(time) + 
+#   Random_0(site_number, model = "iid2d", n = 2*N) + Random_1(site_number, weights = time, copy = "Random_0") + 
+#   Spatial_0(locs, model = spde_obj) #+ Spatial_1(locs, weights = time, model = spde_obj)
 
 fit_bru <- bru(comp, family = "gaussian")
 
