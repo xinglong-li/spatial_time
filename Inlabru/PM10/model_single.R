@@ -94,17 +94,21 @@ locs <- SpatialPoints(PM10s[, c("east", "north")], km_proj)
 
 annual_mean <- PM10s$annual_mean
 
-site_number <- PM10s$site_number
+site_number <- as.numeric(as.factor(PM10s$site_number))
 
 N <- dim(PM10s)[1]
 
-comp <- annual_mean ~ Intercept(1) + Time(time) + 
-  Random_0(site_number, model = "iid") +
-  Spatial_0(locs, model = spde_obj)
-
 # comp <- annual_mean ~ Intercept(1) + Time(time) + 
-#   Random_0(site_number, model = "iid2d", n = 2*N) + Random_1(site_number, weights = time, copy = "Random_0") + 
-#   Spatial_0(locs, model = spde_obj) #+ Spatial_1(locs, weights = time, model = spde_obj)
+#   Random_0(site_number, model = "iid") +
+#   Spatial_0(locs, model = spde_obj)
+
+comp <- annual_mean ~ Intercept(1) + Time(time) +
+  Random_0(site_number, time, model = "iid", constr=TRUE)
+
+comp <- annual_mean ~ Intercept(1) + Time(time) +
+  Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
+  Random_1(no_sites + site_number, time, copy = "Random_0") +
+  Spatial_0(locs, model = spde_obj) #+ Spatial_1(locs, weights = time, model = spde_obj)
 
 fit_bru <- bru(comp, family = "gaussian")
 
