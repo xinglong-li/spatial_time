@@ -96,19 +96,14 @@ annual_mean <- PM10s$annual_mean
 
 site_number <- as.numeric(as.factor(PM10s$site_number))
 
-N <- dim(PM10s)[1]
+# When adding 'weights' in building component to introduce random slopes,
+# the model can be fitted but the summary function does not work and pops up error message?
 
-# comp <- annual_mean ~ Intercept(1) + Time(time) + 
-#   Random_0(site_number, model = "iid") +
-#   Spatial_0(locs, model = spde_obj)
-
-comp <- annual_mean ~ Intercept(1) + Time(time) +
-  Random_0(site_number, time, model = "iid", constr=TRUE)
-
-comp <- annual_mean ~ Intercept(1) + Time(time) +
+comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
   Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
-  Random_1(no_sites + site_number, time, copy = "Random_0") +
-  Spatial_0(locs, model = spde_obj) #+ Spatial_1(locs, weights = time, model = spde_obj)
+  Random_1(site_number, weights = time, copy = "Random_0") +
+  Spatial_0(locs, model = spde_obj) + Spatial_1(locs, weights = time, model = spde_obj) 
+#  Spatial_2(locs, weights = time^2, model = spde_obj)
 
 fit_bru <- bru(comp, family = "gaussian")
 
