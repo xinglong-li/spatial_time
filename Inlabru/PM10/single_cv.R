@@ -44,95 +44,97 @@ var_annually <- group_by(PM10s, year) %>%
   summarise(var_pm = var(annual_mean, na.rm = T))
 variance_plot =  ggplot(data = var_annually, aes(x = year, y = var_pm)) +
   geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)") 
-  ggtitle('A plot of the variance of the log annual means with fitted smoother')
+ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
-
-# Build the INLA mesh ==============================================================================
-
-cutoff_dist = 0.3 # 20km
-cutoff_outer = 2 * cutoff_dist
-
-mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
-                    boundary = CA_border,
-                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                    cutoff = c(cutoff_dist, cutoff_outer),
-                    min.angle = 26)
-
-ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
-
-mesh$n
-
-# Maybe we should consider set the PC prior using data infor
-spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
-                                alpha = 2, 
-                                prior.range = c(0.1, 0.01),
-                                prior.sigma = c(1, 0.01),
-                                constr = T)
-
-# Build inlabru model ==============================================================================
 
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(SpatialPoints(PM10s[, c("east", "north")], km_proj))
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
-# When adding 'weights' in building component to introduce random slopes,
-# the model can be fitted but the summary function does not work and pops up error message?
+# Use K-fold cross validation ======================================================================
 
 comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
   Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
   Random_1(site_number, weights = time, copy = "Random_0") +
-  Spatial_0(locs, model = spde_obj) + Spatial_1(locs, weights = time, model = spde_obj) + 
+  Spatial_0(locs, model = spde_obj) + 
+  Spatial_1(locs, weights = time, model = spde_obj) + 
   Spatial_2(locs, weights = time^2, model = spde_obj)
 
-theta.ini <- fit_bru$mode$theta
-bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
 
-fit_bru <- bru(comp, family = "gaussian")
+cv_err <- function(K, cutoff_dst, hyper_ini=NULL){
+  if(!is.null(hyper_ini)){
+    theta.ini <- fit_bru$mode$theta
+    bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
+  }
+  
+  cutoff_dist <- cutoff_dst
+  cutoff_outer <- 2 * cutoff_dist
+  
+  mesh <- inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
+                       boundary = CA_border,
+                       offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
+                       cutoff = c(cutoff_dist, cutoff_outer),
+                       min.angle = 26)
+  
+  spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
+                                  alpha = 2, 
+                                  prior.range = c(0.1, 0.01),
+                                  prior.sigma = c(1, 0.01),
+                                  constr = T)
+  # Split the dataset
+  idx_sites <- sample(no_sites, no_sites)
+  no_site_per_group <- dim(PM10s)[1] %/% K
+  
+  cv_errs = zeros(K)
+  
+  for(k in 1:K){
+    if(k == K){
+      site_pred <- idx_sites[1+(K-1)*no_site_per_group:k*no_sites]
+      site_fit <- idx_sites[-(1+(K-1)*no_site_per_group:no_sites)]
+    }else{
+      site_pred <- idx_sites[1+(k-1)*no_site_per_group:k*no_site_per_group]
+      site_fit <- idx_sites[-(1+k*no_site_per_group:(k+1)*no_site_per_group)]
+    }
+    
+    data_fit <- PM10s[PM10s$site_number==site_fit, ]
+    data_pred <- PM10s[PM10s$site_number==site_pred, ]
+    
+    # Fit model
+    fit_bru <- bru(comp, family = "gaussian", data = data_fit)
+    
+    # Predict
+    pred_bru <- predict(fit_bru, 
+                        data_pred, 
+                        ~ exp(Intercept + Time_1 + Time_2 + Random_0 + Random_1 + Spatial_0 + Spatial_1 + Spatial_2), 
+                        n.samples = 1000)
+    cv_err_k <- mean(pred_bru$mean - data_pred$annual_mean)
+    cv_errs[k] <- cv_err
+  }
+  mean(cv_errs)
+}
+
+
+mesh_select <- function(cutoff_dist_0){
+  
+  pred_err <- cv_err(cutoff_dist0)
+  pred_errs <- pred_err
+  hyper_ini <- NULL
+  
+  while(TRUE){
+    cutoff_dst <- cutoff_dst + 0.1
+    pred_err <- cv_err(cutoff_dst, hyper_ini)
+    hyper_ini <- NULL
+    pred_errs <- c(pred_ers, pred_err)
+  }
+  pred_errs
+}
 
 # Predict at grid ==================================================================================
-
-data_4pred <- list(time = time,
-                   locs = locs,
-                   site_number = site_number)
-data_4pred <- as.data.frame(data_4pred)
-
-pred_bru <- predict(fit_bru, 
-                    data_4pred, 
-                    ~ exp(Intercept + Time + Random_0 + Spatial_0), 
-                    n.samples = 1000)
-
-pred_bru$year <- PM10s$year
-pred_summary <- group_by(pred_bru, year) %>%
-  summarise(annual_mean = mean(mean),
-            annual_sd = mean(sd))
 
 ggplot(pred_summary) +
   geom_line(aes(x = year, y = annual_mean)) +
   geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
   xlab("Year") +
   ylab("PM10")
-
-
-# Plot the marginal pdf of individual effect, fixed or random.
-# To check the names of all effects:
-# names(fit_bru$marginals.fixed) or names(fit_bru$marginals.random)
-
-plot(fit_bru, "Intercept")
-
-# What we are interested in is the range and variance of the Matern covariance funcion, 
-# which are functions of the parameters internally used in inlabru.
-# We can look at the posterior distributions of the range parameter and the log of the variance parameters.
-
-spde.range <- spde.posterior(fit_bru, "Spatial_0", what = "range")
-spde.logvar <- spde.posterior(fit_bru, "Spatial_0", what = "log.variance")
-
-range.plot <- plot(spde.range)
-var.plot <- plot(spde.logvar)
-multiplot(range.plot, var.plot)
-
-
-# We can look at the posterior distributions of the Matern correlation and covariance functions as follows:
-plot(spde.posterior(fit_bru, "Spatial_0", what = "matern.correlation"))
-plot(spde.posterior(fit_bru, "Spatial_0", what = "matern.covariance"))
 
 
