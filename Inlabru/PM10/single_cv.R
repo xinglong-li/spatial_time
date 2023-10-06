@@ -48,7 +48,7 @@ ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
 
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
-PM10s$locs <- coordinates(SpatialPoints(PM10s[, c("east", "north")], km_proj))
+PM10s$locs <- coordinates(PM10s[, c("east", "north")])
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
 # Use K-fold cross validation ======================================================================
@@ -62,10 +62,6 @@ comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
 
 
 cv_err <- function(K, cutoff_dst, hyper_ini=NULL){
-  if(!is.null(hyper_ini)){
-    theta.ini <- fit_bru$mode$theta
-    bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
-  }
   
   cutoff_dist <- cutoff_dst
   cutoff_outer <- 2 * cutoff_dist
@@ -99,8 +95,13 @@ cv_err <- function(K, cutoff_dst, hyper_ini=NULL){
     data_fit <- PM10s[PM10s$site_number==site_fit, ]
     data_pred <- PM10s[PM10s$site_number==site_pred, ]
     
+    if(!is.null(hyper_ini)){
+      bru_options_set(control.mode = list(theta = hyper_ini[k], restart = TRUE))
+    }
+    
     # Fit model
     fit_bru <- bru(comp, family = "gaussian", data = data_fit)
+    hyper_modes[k] <- fit_bru$mode$theta
     
     # Predict
     pred_bru <- predict(fit_bru, 
@@ -111,12 +112,18 @@ cv_err <- function(K, cutoff_dst, hyper_ini=NULL){
     cv_errs[k] <- cv_err
   }
   mean(cv_errs)
+  hyper_modes
 }
 
 
 mesh_select <- function(cutoff_dist_0){
   
-  pred_err <- cv_err(cutoff_dist0)
+  idx_site_permute <- sample(no_sites, no_sites)
+  
+  cv_fit <- cv_err(cutoff_dist0, idx_site_permute)
+  pred_err <- cv_fit$err
+  theta_init <- cv_fit$modes
+  
   pred_errs <- pred_err
   hyper_ini <- NULL
   
@@ -128,13 +135,5 @@ mesh_select <- function(cutoff_dist_0){
   }
   pred_errs
 }
-
-# Predict at grid ==================================================================================
-
-ggplot(pred_summary) +
-  geom_line(aes(x = year, y = annual_mean)) +
-  geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
-  xlab("Year") +
-  ylab("PM10")
 
 
