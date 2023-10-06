@@ -73,6 +73,7 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
 
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(SpatialPoints(PM10s[, c("east", "north")], km_proj))
+PM10s$locs <- coordinates(PM10s[, c("east", "north")])
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
 # When adding 'weights' in building component to introduce random slopes,
@@ -81,24 +82,20 @@ PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
   Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
   Random_1(site_number, weights = time, copy = "Random_0") +
-  Spatial_0(locs, model = spde_obj) + Spatial_1(locs, weights = time, model = spde_obj) + 
+  Spatial_0(locs, model = spde_obj) + 
+  Spatial_1(locs, weights = time, model = spde_obj) + 
   Spatial_2(locs, weights = time^2, model = spde_obj)
 
 theta.ini <- fit_bru$mode$theta
 bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
 
-fit_bru <- bru(comp, family = "gaussian")
+fit_bru <- bru(comp, family = "gaussian", data = PM10s)
 
 # Predict at grid ==================================================================================
 
-data_4pred <- list(time = time,
-                   locs = locs,
-                   site_number = site_number)
-data_4pred <- as.data.frame(data_4pred)
-
 pred_bru <- predict(fit_bru, 
-                    data_4pred, 
-                    ~ exp(Intercept + Time + Random_0 + Spatial_0), 
+                    PM10s, 
+                    ~ exp(Intercept + Time_1 + Time_2 + Random_0 + Random_1 + Spatial_0 + Spatial_1 + Spatial_2), 
                     n.samples = 1000)
 
 pred_bru$year <- PM10s$year
@@ -106,8 +103,12 @@ pred_summary <- group_by(pred_bru, year) %>%
   summarise(annual_mean = mean(mean),
             annual_sd = mean(sd))
 
+pm_summary <- group_by(PM10s, year) %>%
+  summarise(annual_mean_exp = mean(exp(annual_mean), na.rm=TRUE))
+
 ggplot(pred_summary) +
   geom_line(aes(x = year, y = annual_mean)) +
+  geom_line(aes(x = year, y = pm_summary$annual_mean_exp), col='blue') +
   geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
   xlab("Year") +
   ylab("PM10")
@@ -118,6 +119,10 @@ ggplot(pred_summary) +
 # names(fit_bru$marginals.fixed) or names(fit_bru$marginals.random)
 
 plot(fit_bru, "Intercept")
+plot(fit_bru, "Time_1")
+plot(fit_bru, "Time_2")
+
+plot(fit_bru, "Random_0")
 
 # What we are interested in is the range and variance of the Matern covariance funcion, 
 # which are functions of the parameters internally used in inlabru.
