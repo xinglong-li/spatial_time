@@ -74,10 +74,27 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(PM10s[, c("east", "north")])
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
+PM10s$R <- as.numeric(!is.na(PM10s$annual_mean))
+PM10s$R_lag <- c(rep(NA, no_sites), PM10s$R[1:(dim(PM10s)[1]-no_sites)])
+PM10s$zero <- 0
+
+# Compute Euclidean distances between all the sites
+Dists <- spDists(cbind(PM10s$east, PM10s$north))
+
+r <- 0.1 # The maximum radius of interest to be 10 km
+PM10s$repulsion_ind <- 0
+counter <- no_sites + 1
+for (i in sort(unique(PM10s$year))[-1]) {
+  # first extract the data at time i
+  data_i <- PM10s[PM10s$year == i, ]
+  # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it?
+  PM10s$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(Dists[, which(data_i$R_lag==1)] < 1) > 0
+  counter <- counter + no_sites
+}
 
 
 # All components for the joint model
-comp <- ~ Intercept_obs(1) +                                  # components for observation model
+comp <- ~ Intercept_obs(1) +                                    # components for observation model
   Time_obs_1(time) + 
   Time_obs_2(time^2) +
   Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
@@ -85,14 +102,14 @@ comp <- ~ Intercept_obs(1) +                                  # components for o
   Spatial_obs_0(locs, model = spde_obj) + 
   Spatial_obs_1(locs, weights = time, model = spde_obj) + 
   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
-  Random_aux1_0(site_number, copy = "Random_0", fix = TRUE) + # components for 1st auxiliary model
-  Random_aux1_1(site_number, weights = "Random_1", fix = TRUE) +
+  Random_aux1_0(site_number, copy = "Random_0", fixed = TRUE) + # components for 1st auxiliary model
+  Random_aux1_1(site_number, weights = "Random_1", fixed = TRUE) +
   Comp_aux1(site_number, model = 'iid') +
-  Spatial_aux2_0(copy = "Spatial_obs_0", fix = TRUE) +        # components for 2nd auxiliary model
-  Spatial_aux2_1(copy = "Spatial_obs_1", fix = TRUE) +
-  Spatial_aux2_2(copy = "Spatial_obs_2", fix = TRUE) +
+  Spatial_aux2_0(copy = "Spatial_obs_0", fixed = TRUE) +        # components for 2nd auxiliary model
+  Spatial_aux2_1(copy = "Spatial_obs_1", fixed = TRUE) +
+  Spatial_aux2_2(copy = "Spatial_obs_2", fixed = TRUE) +
   Comp_aux2(locs, model = 'iid') +
-  Intercept_slc_ini(1) + Intercept_slc(1) +                   # components for site selection model
+  Intercept_slc_ini(1) + Intercept_slc(1) +                     # components for site selection model
   Time_slc_1(time) +
   Time_slc_2(time^2) +
   R_slc() + 
