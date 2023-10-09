@@ -44,7 +44,7 @@ var_annually <- group_by(PM10s, year) %>%
   summarise(var_pm = var(annual_mean, na.rm = T))
 variance_plot =  ggplot(data = var_annually, aes(x = year, y = var_pm)) +
   geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)") 
-  ggtitle('A plot of the variance of the log annual means with fitted smoother')
+ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
 
 # Build the INLA mesh ==============================================================================
@@ -62,7 +62,7 @@ ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
 mesh$n
 
-# Maybe we should consider set the PC prior using data infor
+# Maybe we should consider set the PC prior using data info
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                 alpha = 2, 
                                 prior.range = c(0.1, 0.01),
@@ -75,20 +75,63 @@ PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year
 PM10s$locs <- coordinates(PM10s[, c("east", "north")])
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
-# When adding 'weights' in building component to introduce random slopes,
-# the model can be fitted but the summary function does not work and pops up error message?
 
-comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
-  Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
-  Random_1(site_number, weights = time, copy = "Random_0") +
-  Spatial_0(locs, model = spde_obj) + 
-  Spatial_1(locs, weights = time, model = spde_obj) + 
-  Spatial_2(locs, weights = time^2, model = spde_obj)
+# All components for the joint model
+comp <- ~ Intercept_obs(1) +                                  # components for observation model
+  Time_obs_1(time) + 
+  Time_obs_2(time^2) +
+  Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
+  Random_obs_1(site_number, weights = time, copy = "Random_0") +
+  Spatial_obs_0(locs, model = spde_obj) + 
+  Spatial_obs_1(locs, weights = time, model = spde_obj) + 
+  Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
+  Random_aux1_0(site_number, copy = "Random_0", fix = TRUE) + # components for 1st auxiliary model
+  Random_aux1_1(site_number, weights = "Random_1", fix = TRUE) +
+  Comp_aux1(site_number, model = 'iid') +
+  Spatial_aux2_0(copy = "Spatial_obs_0", fix = TRUE) +        # components for 2nd auxiliary model
+  Spatial_aux2_1(copy = "Spatial_obs_1", fix = TRUE) +
+  Spatial_aux2_2(copy = "Spatial_obs_2", fix = TRUE) +
+  Comp_aux2(locs, model = 'iid') +
+  Intercept_slc_ini(1) + Intercept_slc(1) +                   # components for site selection model
+  Time_slc_1(time) +
+  Time_slc_2(time^2) +
+  R_slc() + 
+  I_slc() +
+  AR_slc(year, model='ar1') +
+  Spatial_slc(locs, model = spde_obj) +
+  Comp_share1(copy = 'Comp_aux1') +
+  Comp_share2(copy = 'Comp_aux2')
+
+
+# All likelihoods
+like_obs <- like(
+  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
+  family = "gaussian"
+  )
+
+like_aux_1 <- like(
+  formula = zeros ~ Random_aux1_0 + Random_aux1_1 - Comp_aux1,
+  family = "gaussian"
+  )
+
+like_aux_2 <- like(
+  formula = zeros ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 - Comp_aux2,
+  family = "gaussian"
+  )
+
+like_select <- like(
+  formula = selection ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_slc + I_slc + AR_slc + Spatial_slc +
+    Comp_share1 + Comp_share2.
+  family = "gaussian"
+  )
+
 
 theta.ini <- fit_bru$mode$theta
 bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
 
-fit_bru <- bru(comp, family = "gaussian", data = PM10s)
+fit_bru <- bru(comp, like_obs, like_aux_1, like_aux_2, like_select, data = PM10s)
+
 
 # Predict at grid ==================================================================================
 
