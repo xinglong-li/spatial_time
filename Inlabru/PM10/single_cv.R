@@ -98,6 +98,7 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
   hyper_modes <- NULL
   
   for(k in 1:K){
+    print(sprintf("Subset %s out of %s", k, K))
     if(k == K){
       i_pred <- (1+(K-1)*no_site_per_group) : no_sites
       site_pred <- idx_sites[i_pred]
@@ -120,7 +121,7 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
     bru_options_reset()
     
     # Save the posterior modes of hyper parameters for later initialization
-    hyper_modes <- c(hyper_modes, fit_bru$mode$theta)
+    hyper_modes <- c(hyper_modes, list(fit_bru$mode$theta))
     
     # Predict
     pred_bru <- predict(fit_bru, 
@@ -130,7 +131,7 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
     cv_err_k <- mean(pred_bru$mean - data_pred$annual_mean, na.rm = TRUE)
     cv_errs <- c(cv_errs, cv_err_k)
   }
-  list(pred_err = mean(cv_errs), 
+  list(pred_err = cv_errs, 
        post_modes = hyper_modes)
 }
 
@@ -148,7 +149,7 @@ mesh_select <- function(K, cutoff_dist_0){
     print(sprintf("Cutoff distance is %.3f", cutoff_dist))
     t <- t + 1
     cv_fit <- cross_validation(K, cutoff_dist, idx_site_permute, hyper_ini)
-    cv_errs <- c(cv_errs, cv_fit$pred_err)
+    cv_errs <- c(cv_errs, mean(cv_fit$pred_err))
     
     hyper_ini <- cv_fit$post_modes
     cutoff_dist <- cutoff_dist * 0.95
@@ -163,7 +164,7 @@ mesh_select <- function(K, cutoff_dist_0){
 # Train ============================================================================================
 
 cutoff_dist_0 <- 0.4
-K <- 5
+K <- 10
 
 
 
