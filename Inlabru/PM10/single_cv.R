@@ -71,7 +71,7 @@ comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
   Spatial_2(locs, weights = time^2, model = spde_obj)
 
 
-cv_err <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
+cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
   # K          : K-fold cross validation.
   # cutoff_dist: maximum innner cut-off distance of the mesh grid.
   # idx_sites  : random permumation of indeces of sites, used to split K subsets.
@@ -99,15 +99,17 @@ cv_err <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
   
   for(k in 1:K){
     if(k == K){
-      site_pred <- idx_sites[1+(K-1)*no_site_per_group:no_sites]
-      site_fit <- idx_sites[-(1+(K-1)*no_site_per_group:no_sites)]
+      i_pred <- (1+(K-1)*no_site_per_group) : no_sites
+      site_pred <- idx_sites[i_pred]
+      site_fit <- idx_sites[-i_pred]
     }else{
-      site_pred <- idx_sites[1+(k-1)*no_site_per_group:k*no_site_per_group]
-      site_fit <- idx_sites[-(1+(k-1)*no_site_per_group:k*no_site_per_group)]
+      i_pred <- (1+(k-1)*no_site_per_group) : (k*no_site_per_group)
+      site_pred <- idx_sites[i_pred]
+      site_fit <- idx_sites[-i_pred]
     }
     
-    data_fit <- PM10s[PM10s$site_number==site_fit, ]
-    data_pred <- PM10s[PM10s$site_number==site_pred, ]
+    data_fit <- filter(PM10s, site_number %in% site_fit)
+    data_pred <- filter(PM10s, site_number %in% site_pred)
     
     if(!is.null(hyper_ini)){
       bru_options_set(control.mode = list(theta = hyper_ini[k], restart = TRUE))
@@ -141,14 +143,27 @@ mesh_select <- function(K, cutoff_dist_0){
   
   hyper_ini <- NULL
   cv_errs <- NULL
+  t <- 0
   while(TRUE){
-    cv_fit <- cv_err(K, cutoff_dist, idx_site_permute, hyper_ini)
+    print(sprintf("Cutoff distance is %.3f", cutoff_dist))
+    t <- t + 1
+    cv_fit <- cross_validation(K, cutoff_dist, idx_site_permute, hyper_ini)
     cv_errs <- c(cv_errs, cv_fit$pred_err)
     
-    hyper_ini <- cv_fit$post_mode
+    hyper_ini <- cv_fit$post_modes
     cutoff_dist <- cutoff_dist * 0.95
+    
+    if(t > 2 && cv_errs[t] > cv_errs[t-1] && cv_errs[t-1] > cv_errs[t-2]) {
+      print("CV error starts increasing. STOP")
+    }
   }
   cv_errs
 }
+
+# Train ============================================================================================
+
+cutoff_dist_0 <- 0.4
+K <- 5
+
 
 
