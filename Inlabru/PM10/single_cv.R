@@ -118,8 +118,7 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
     
     # Fit model
     fit_bru <- bru(comp, family = "gaussian", data = data_fit)
-    bru_options_reset()
-    
+
     # Save the posterior modes of hyper parameters for later initialization
     hyper_modes <- c(hyper_modes, list(fit_bru$mode$theta))
     
@@ -163,7 +162,7 @@ mesh_select <- function(K, cutoff_dist_0){
 
 # Train ============================================================================================
 
-cutoff_dist_0 <- 0.4
+cutoff_dist_0 <- 0.5
 K <- 10
 
 

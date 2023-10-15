@@ -49,7 +49,7 @@ variance_plot
 
 # Build the INLA mesh ==============================================================================
 
-cutoff_dist = 0.4 # 20km
+cutoff_dist = 0.3 # 20km
 cutoff_outer = 2 * cutoff_dist
 
 mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
@@ -85,10 +85,12 @@ comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
   Spatial_1(locs, weights = time, model = spde_obj) + 
   Spatial_2(locs, weights = time^2, model = spde_obj)
 
-theta.ini <- fit_bru$mode$theta
-bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
+# theta.ini <- fit_bru$mode$theta
+# bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
+bru_options_set(bru_max_iter = 5)
 
 fit_bru <- bru(comp, family = "gaussian", data = PM10s)
+fit_bru$mode$theta
 
 # Predict at grid ==================================================================================
 
