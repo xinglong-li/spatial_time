@@ -63,20 +63,15 @@ PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
 # Use K-fold cross validation ======================================================================
 
-comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
-  Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
-  Random_1(site_number, weights = time, copy = "Random_0") +
-  Spatial_0(locs, model = spde_obj) + 
-  Spatial_1(locs, weights = time, model = spde_obj) + 
-  Spatial_2(locs, weights = time^2, model = spde_obj)
-
-
 cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
   # K          : K-fold cross validation.
   # cutoff_dist: maximum innner cut-off distance of the mesh grid.
   # idx_sites  : random permumation of indeces of sites, used to split K subsets.
   # hyper_ini  : list of hyper parameters, one for each of the K subsets. The hyper parameters are 
   #              posterior modes of the hyperparameters fitted using coerse grid on the same subset. 
+  
+  bru_options_set(bru_max_iter = 1,
+                  control.inla = list(strategy = "gaussian", int.strategy = 'eb'))
   
   cutoff_outer <- 2 * cutoff_dist
   
@@ -92,12 +87,20 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
                                   prior.range = c(0.1, 0.01),
                                   prior.sigma = c(1, 0.01),
                                   constr = T)
-  # Split the dataset
+  
+  comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
+    Random_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
+    Random_1(site_number, weights = time, copy = "Random_0") +
+    Spatial_0(locs, model = spde_obj) + 
+    Spatial_1(locs, weights = time, model = spde_obj) + 
+    Spatial_2(locs, weights = time^2, model = spde_obj)
+
   no_site_per_group <- no_sites %/% K
   cv_errs <- NULL
   hyper_modes <- NULL
   
   for(k in 1:K){
+    # Split the dataset into training and prediction set.
     print(sprintf("Subset %s out of %s", k, K))
     if(k == K){
       i_pred <- (1+(K-1)*no_site_per_group) : no_sites
@@ -112,8 +115,9 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
     data_fit <- filter(PM10s, site_number %in% site_fit)
     data_pred <- filter(PM10s, site_number %in% site_pred)
     
+    # Initialize the model using the fit of a model with coarse grid
     if(!is.null(hyper_ini)){
-      bru_options_set(control.mode = list(theta = hyper_ini[k], restart = TRUE))
+      bru_options_set(control.mode = list(theta = hyper_ini[[k]], restart = TRUE))
     }
     
     # Fit model
@@ -149,7 +153,8 @@ mesh_select <- function(K, cutoff_dist_0){
     t <- t + 1
     cv_fit <- cross_validation(K, cutoff_dist, idx_site_permute, hyper_ini)
     cv_errs <- c(cv_errs, mean(cv_fit$pred_err))
-    
+    print(sprintf("The cross validation prediction error is %.3f", mean(cv_fit$pred_err)))
+
     hyper_ini <- cv_fit$post_modes
     cutoff_dist <- cutoff_dist * 0.95
     
@@ -162,8 +167,8 @@ mesh_select <- function(K, cutoff_dist_0){
 
 # Train ============================================================================================
 
-cutoff_dist_0 <- 0.5
-K <- 10
+cutoff_dist_0 <- 0.4
+K <- 20
 
-
-
+set.seed(1)
+mesh_select(K, cutoff_dist_0)
