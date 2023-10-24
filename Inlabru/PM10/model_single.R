@@ -1,6 +1,5 @@
 library(dplyr)
 library(sp)
-library(rgdal)
 library(reshape2)
 library(INLA)
 library(ggplot2)
@@ -54,8 +53,9 @@ cutoff_outer = 2 * cutoff_dist
 
 mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
                     boundary = CA_border,
-                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                    cutoff = c(cutoff_dist, cutoff_outer),
+                    offset = c(0.1, 0.2), 
+                    max.edge = c(cutoff_dist, cutoff_outer),
+                    cutoff = cutoff_dist,
                     min.angle = 26)
 
 ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()

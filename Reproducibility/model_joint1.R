@@ -1,6 +1,6 @@
 library(dplyr)
 library(sp)
-library(rgdal)
+# library(rgdal)
 library(reshape2)
 library(INLA)
 library(ggplot2)

@@ -1,6 +1,5 @@
 library(dplyr)
 library(sp)
-library(rgdal)
 library(reshape2)
 library(INLA)
 library(ggplot2)
@@ -79,7 +78,7 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
                        boundary = CA_border,
                        offset = c(0.1, 0.2), 
                        max.edge = c(cutoff_dist, cutoff_outer),
-                       cutoff = c(cutoff_dist, cutoff_outer),
+                       cutoff = cutoff_dist,
                        min.angle = 26)
   
   spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
