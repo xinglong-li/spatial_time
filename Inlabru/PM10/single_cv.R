@@ -34,14 +34,10 @@ no_T = length(unique(PM10s0$year))
 # Reform the data so that each site has num_of_year rows, the empty records are filled with NAs
 PM10s_flat <-
   dcast(PM10s0, site_number + north + east ~ year, value.var = "annual_mean")
-PM10s = melt(
-  PM10s_flat,
-  id.vars = c(1, 2, 3),
-  variable.name = 'year',
-  value.name = 'annual_mean'
-)
-PM10s$year <-
-  as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
+PM10s = melt(PM10s_flat, id.vars = c(1, 2, 3), variable.name = 'year', value.name = 'annual_mean')
+PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
+
+stopifnot(dim(PM10s)[1] == no_sites * no_T)
 
 subsmaple_plotting_data = PM10s[which(PM10s$site_number %in% unique(PM10s$site_number)[sample.int(111, size = 30)]), ]
 means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mean)) +
@@ -74,12 +70,12 @@ cross_validation <- function(K, cutoff_dist, idx_sites, hyper_ini=NULL){
   
   cutoff_outer <- 2 * cutoff_dist
   
-  mesh <- inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
-                       boundary = CA_border,
-                       offset = c(0.1, 0.2), 
-                       max.edge = c(cutoff_dist, cutoff_outer),
-                       cutoff = cutoff_dist,
-                       min.angle = 26)
+  mesh <- fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
+                          boundary = CA_border,
+                          offset = c(0.1, 0.2), 
+                          max.edge = c(cutoff_dist, cutoff_outer),
+                          cutoff = cutoff_dist,
+                          min.angle = 26)
   
   spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                   alpha = 2, 

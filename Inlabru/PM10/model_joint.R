@@ -34,6 +34,8 @@ PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annu
 PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
 PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
 
+stopifnot(dim(PM10s)[1] == no_sites * no_T)
+
 subsmaple_plotting_data = PM10s[which(PM10s$site_number %in% unique(PM10s$site_number)[
   sample.int(111, size = 30)]), ]
 means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mean)) +
@@ -49,14 +51,14 @@ variance_plot
 
 # Build the INLA mesh ==============================================================================
 
-cutoff_dist = 0.4 # 20km
+cutoff_dist = 0.3 # 20km
 cutoff_outer = 2 * cutoff_dist
 
-mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
-                    boundary = CA_border,
-                    offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                    cutoff = c(cutoff_dist, cutoff_outer),
-                    min.angle = 26)
+mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
+                      boundary = CA_border,
+                      offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
+                      cutoff = cutoff_dist,
+                      min.angle = 26)
 
 ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
@@ -69,29 +71,35 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
                                 prior.sigma = c(1, 0.01),
                                 constr = T)
 
-# Build inlabru model ==============================================================================
+# Prepare explanatory variabels ====================================================================
 
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(PM10s[, c("east", "north")])
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
+
+# Site-selection indicator
 PM10s$R <- as.numeric(!is.na(PM10s$annual_mean))
 PM10s$R_lag <- c(rep(NA, no_sites), PM10s$R[1:(dim(PM10s)[1]-no_sites)])
+
+# Response variable for the auxiliary model
 PM10s$zero <- 0
 
 # Compute Euclidean distances between all the sites
-Dists <- spDists(cbind(PM10s$east, PM10s$north))
+dists <- spDists(cbind(PM10s$east[1:no_sites], PM10s$north[1:no_sites]))
 
 r <- 0.1 # The maximum radius of interest to be 10 km
 PM10s$repulsion_ind <- 0
+
 counter <- no_sites + 1
 for (i in sort(unique(PM10s$year))[-1]) {
-  # first extract the data at time i
+  # First extract the data at time i
   data_i <- PM10s[PM10s$year == i, ]
   # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it?
-  PM10s$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(Dists[, which(data_i$R_lag==1)] < 1) > 0
+  PM10s$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(dists[, which(data_i$R_lag==1)] < r) > 0
   counter <- counter + no_sites
 }
 
+# Build inlabru model ==============================================================================
 
 # All components for the joint model
 comp <- ~ Intercept_obs(1) +                                    # components for observation model
@@ -112,8 +120,8 @@ comp <- ~ Intercept_obs(1) +                                    # components for
   Intercept_slc_ini(1) + Intercept_slc(1) +                     # components for site selection model
   Time_slc_1(time) +
   Time_slc_2(time^2) +
-  R_slc() + 
-  I_slc() +
+  R_slc(R_lag) + 
+  I_slc(repulsion_ind) +
   AR_slc(year, model='ar1') +
   Spatial_slc(locs, model = spde_obj) +
   Comp_share1(copy = 'Comp_aux1') +

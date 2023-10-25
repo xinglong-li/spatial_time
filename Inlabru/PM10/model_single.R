@@ -33,6 +33,8 @@ PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annu
 PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
 PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
 
+stopifnot(dim(PM10s)[1] == no_sites * no_T)
+
 subsmaple_plotting_data = PM10s[which(PM10s$site_number %in% unique(PM10s$site_number)[
   sample.int(111, size = 30)]), ]
 means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mean)) +
@@ -51,12 +53,12 @@ variance_plot
 cutoff_dist = 0.3 # 20km
 cutoff_outer = 2 * cutoff_dist
 
-mesh = inla.mesh.2d(loc = cbind(PM10s$east, PM10s$north),
-                    boundary = CA_border,
-                    offset = c(0.1, 0.2), 
-                    max.edge = c(cutoff_dist, cutoff_outer),
-                    cutoff = cutoff_dist,
-                    min.angle = 26)
+mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
+                       boundary = CA_border,
+                       offset = c(0.1, 0.2), 
+                       max.edge = c(cutoff_dist, cutoff_outer),
+                       cutoff = cutoff_dist,
+                       min.angle = 26)
 
 ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
@@ -87,7 +89,7 @@ comp <- annual_mean ~ Intercept(1) + Time_1(time) + Time_2(time^2) +
 
 # theta.ini <- fit_bru$mode$theta
 # bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
-bru_options_set(bru_max_iter = 5)
+bru_options_set(bru_max_iter = 3, control.inla = list(strategy = "gaussian", int.strategy = 'eb'))
 
 fit_bru <- bru(comp, family = "gaussian", data = PM10s)
 fit_bru$mode$theta
