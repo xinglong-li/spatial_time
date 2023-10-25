@@ -166,8 +166,8 @@ mesh_select <- function(K, cutoff_dist_0){
 
 # Train ============================================================================================
 
-cutoff_dist_0 <- 0.4
+cutoff_dist_0 <- 0.3
 K <- 20
 
-set.seed(1)
+set.seed(2)
 mesh_select(K, cutoff_dist_0)
