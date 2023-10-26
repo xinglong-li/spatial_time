@@ -1,6 +1,5 @@
 library(dplyr)
 library(sp)
-library(rgdal)
 library(reshape2)
 library(INLA)
 library(ggplot2)
@@ -42,9 +41,9 @@ means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mea
   geom_line(aes(group = site_number, colour = site_number)) + xlab("Year") + ylab("log(PM10)")
 means_plot
 
-var_annually <- group_by(PM10s, year) %>% 
+var_annual <- group_by(PM10s, year) %>% 
   summarise(var_pm = var(annual_mean, na.rm = T))
-variance_plot =  ggplot(data = var_annually, aes(x = year, y = var_pm)) +
+variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_pm)) +
   geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)") 
 ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
@@ -102,7 +101,7 @@ for (i in sort(unique(PM10s$year))[-1]) {
 # Build inlabru model ==============================================================================
 
 # All components for the joint model
-comp <- ~ Intercept_obs(1) +                                    # components for observation model
+comp <- ~ Intercept_obs(1) + # Components for observation model
   Time_obs_1(time) + 
   Time_obs_2(time^2) +
   Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) + 
@@ -110,19 +109,25 @@ comp <- ~ Intercept_obs(1) +                                    # components for
   Spatial_obs_0(locs, model = spde_obj) + 
   Spatial_obs_1(locs, weights = time, model = spde_obj) + 
   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
-  Random_aux1_0(site_number, copy = "Random_0", fixed = TRUE) + # components for 1st auxiliary model
+  # Components for 1st auxiliary model
+  Random_aux1_0(site_number, copy = "Random_0", fixed = TRUE) + 
   Random_aux1_1(site_number, weights = "Random_1", fixed = TRUE) +
-  Comp_aux1(site_number, model = 'iid') +
-  Spatial_aux2_0(copy = "Spatial_obs_0", fixed = TRUE) +        # components for 2nd auxiliary model
-  Spatial_aux2_1(copy = "Spatial_obs_1", fixed = TRUE) +
-  Spatial_aux2_2(copy = "Spatial_obs_2", fixed = TRUE) +
-  Comp_aux2(locs, model = 'iid') +
-  Intercept_slc_ini(1) + Intercept_slc(1) +                     # components for site selection model
+  Comp_aux1(site_number, model = 'iid', prec = 20, fixed = TRUE,
+            hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+  # Components for 2nd auxiliary model
+  Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +        
+  Spatial_aux2_1(locs, weights = time, copy = "Spatial_obs_1", fixed = TRUE) +
+  Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
+  Comp_aux2(locs, model = 'iid', prec = 20, fixed = TRUE,
+            hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+  # Components for site selection model
+  Intercept_slc_ini(1) + Intercept_slc(1) +                     
   Time_slc_1(time) +
   Time_slc_2(time^2) +
-  R_slc(R_lag) + 
-  I_slc(repulsion_ind) +
-  AR_slc(year, model='ar1') +
+  R_lag_slc(R_lag) +
+  Repuls_slc(repulsion_ind) +
+  AR_slc(year, model='ar1', 
+         hyper=list(theta1=list(prior="pcprec",param=c(2,0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
   Comp_share1(copy = 'Comp_aux1') +
   Comp_share2(copy = 'Comp_aux2')
@@ -130,25 +135,29 @@ comp <- ~ Intercept_obs(1) +                                    # components for
 
 # All likelihoods
 like_obs <- like(
-  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+    Random_obs_0 + Random_obs_1 + 
     Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
   family = "gaussian"
   )
 
 like_aux_1 <- like(
   formula = zeros ~ Random_aux1_0 + Random_aux1_1 - Comp_aux1,
-  family = "gaussian"
+  family = "gaussian",
+  hyper = list(prec = list(initial = 20, fixed=TRUE))
   )
 
 like_aux_2 <- like(
   formula = zeros ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 - Comp_aux2,
-  family = "gaussian"
+  family = "gaussian",
+  hyper = list(prec = list(initial = 20, fixed=TRUE))
   )
 
 like_select <- like(
   formula = selection ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_slc + I_slc + AR_slc + Spatial_slc +
     Comp_share1 + Comp_share2.
-  family = "gaussian"
+  family = "binomial",
+  Ntrials = rep(1,times = length(data_expand$R))
   )
 
 

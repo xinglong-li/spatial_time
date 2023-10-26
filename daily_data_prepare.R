@@ -1,6 +1,5 @@
 library(dplyr)
 library(readr)
-library(rgdal)
 library(sp)
 library(ggplot2)
 
@@ -82,7 +81,7 @@ stopifnot(
 )
 
 # Project the map into UTM zone 10 with unit kilometer
-km_proj <- CRS("+proj=utm +zone=10 + ellps=WGS84 +units=km")
+km_proj <- CRS("+proj=utm + zone=10 + ellps=WGS84 +units=km")
 
 loc_nad83_spt <- SpatialPoints(loc_nad83, proj4string=CRS("+init=epsg:4296"))
 loc_nad83_to_utm <- spTransform(loc_nad83_spt, km_proj) %>% coordinates()

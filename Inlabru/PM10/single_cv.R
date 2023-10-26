@@ -44,9 +44,9 @@ means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mea
   geom_line(aes(group = site_number, colour = site_number)) + xlab("Year") + ylab("log(PM10)")
 means_plot
 
-var_annually <- group_by(PM10s, year) %>%
+var_annual <- group_by(PM10s, year) %>%
   summarise(var_pm = var(annual_mean, na.rm = T))
-variance_plot =  ggplot(data = var_annually, aes(x = year, y = var_pm)) +
+variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_pm)) +
   geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)")
 ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot

@@ -1,6 +1,5 @@
 library(jsonlite)
 library(readr)
-library(rgdal)
 library(dplyr)
 library(ggplot2)
 library(ggspatial)
@@ -151,7 +150,7 @@ print(PM10s_summary, n = 100)
 # Import the border map of California ==============================================================
 
 # The border file of California downloaded have associated projection data,such as ESRI shapefiles. 
-
+# ATTENTION: function readOGR from package rgdal is no longer available, should use read_sf from package sf instead 
 ca_boundary <- readOGR(dsn = "~/Downloads/ca-state-boundary", layer = "CA_State_TIGER2016")
 ca_boundary_km <- spTransform(ca_boundary, km_proj)
 proj4string(ca_boundary)
@@ -182,7 +181,7 @@ extractCoords <- function(sp.df)
   results
 }
 
-vertices<-extractCoords(ca_boundary_km)
+vertices <- extractCoords(ca_boundary_km)
 
 scaled.vertices <- lapply(vertices, function(x) x / 100)
 
