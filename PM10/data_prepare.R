@@ -170,7 +170,7 @@ PM10s_summary_scaled$east <- PM10s_summary$east / 100
 # saveRDS(PM10s_summary_scaled, sprintf("%sPM10s_CA_summary_scaled.rds", result_path))
 
 # Re-scale coordinates of CA boundary
-#Extract coordinates and put them in a list
+# Extract coordinates and put them in a list
 extractCoords <- function(sp.df)
 {
   results <- list()

@@ -1,100 +1,106 @@
 library(dplyr)
+library(sf)
 library(sp)
 library(reshape2)
 library(INLA)
 library(ggplot2)
 library(inlabru)
 
-path <- "./PM10/"
 
-# Load the (scaled) locations of sites and the border of California(the unit is 100km) =============
-# The data also excludes sites that contain outlier records (site_number = 0030 and 0022).
 
-PM10s0 <- readRDS(sprintf("%sPM10s_CA_summary_scaled.rds", path))
-print(sprintf("Total number of annual measurements: %s", dim(PM10s0)[1]))
-print(sprintf("Total number of sites: %s", length(unique(PM10s0$site_number))))
-print(sprintf("The sd of East coordinates is: %s", sd(PM10s0$east)))
-print(sprintf("The sd of North coordinates is: %s", sd(PM10s0$north)))
+# Prepare the data =================================================================================
 
-CA_border <- readRDS(sprintf("%sCA_border_scaled.rds", path))
+# Load data 
+load("./Reproducibility/Data2Joe.RData")
+# Load the indicator telling us if the mesh vertices lie in GB
+xy_in = readRDS("./Data/Reproducibility/xy_in.rds") 
 
-ggplot(PM10s0) + gg(CA_border) + geom_point(aes(x = east, y = north)) + coord_equal()
+# Standardize the location
+BS <- BlackSmokePrefData
+sd_x <- sd(BS[, 2])
+BS[, c(2,3)] <- BS[, c(2,3)] / sd_x
+ggplot(BS) + geom_point(aes(x = east, y = north)) + coord_equal()
 
-mean_annually <- group_by(PM10s0, year) %>%
-  summarise(mean_pm = mean(annual_mean)) 
-mean_pm_annually <- mean(mean_annually$mean_pm)
-PM10s0$annual_mean <- log(PM10s0$annual_mean) - log(mean_pm_annually)
+# Reshape the data with one observation per row (required by INLA)
+BS2 <- melt(BS, id.vars = c(1, 2, 3), variable.name = 'year', value.name = 'bsmoke')
+BS2$year = as.numeric(as.character(factor(BS2$year, labels = 66:96)))
 
-no_sites = length(unique(PM10s0$site_number))
-no_T = length(unique(PM10s0$year))
+ggplot(BS2) + geom_histogram(aes(x = bsmoke), bins = 40) 
+# Right skew - take natural log and make it unitless by minus log of mean value
+BS2$bsmoke = log(BS2$bsmoke / mean(colMeans(BS[, 4:34], na.rm = T)))
+ggplot(BS2) + geom_histogram(aes(x = bsmoke), bins = 40) 
 
-# Reform the data so that each site has num_of_year rows, the empty records are filled with NAs
-PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annual_mean")
-PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
-PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
+no_sites = length(unique(BS2$site))
+no_T = length(unique(BS2$year))
+stopifnot(dim(BS2)[1] == no_sites * no_T)
 
-stopifnot(dim(PM10s)[1] == no_sites * no_T)
+subsmaple_plotting_data = BS2[which(BS2$site %in% levels(BS2$site)[
+  sample.int(1466, size = 30)]), ]
 
-subsmaple_plotting_data = PM10s[which(PM10s$site_number %in% unique(PM10s$site_number)[
-  sample.int(111, size = 30)]), ]
-means_plot = ggplot(data = subsmaple_plotting_data, aes(x = year, y = annual_mean)) +
-  geom_line(aes(group = site_number, colour = site_number)) + xlab("Year") + ylab("log(PM10)")
-means_plot
+ggplot(data = subsmaple_plotting_data, aes(x = year, y = bsmoke)) +
+  geom_line(aes(group = site, colour = site))
 
-var_annual <- group_by(PM10s, year) %>% 
-  summarise(var_pm = var(annual_mean, na.rm = T))
-variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_pm)) +
-  geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)") 
-ggtitle('A plot of the variance of the log annual means with fitted smoother')
-variance_plot
+var_annual <- group_by(BS2, year) %>% 
+  summarise(var_bs = var(bsmoke, na.rm = T))
+ggplot(data = var_annual, aes(x = year, y = var_bs)) +
+  geom_line() + geom_smooth() + 
+  ggtitle('A plot of the variance of the log annual means with fitted smoother')
+
 
 # Build the INLA mesh ==============================================================================
 
+# The mesh grid used by Joe 
+mesh_jw <- readRDS('./Data/Reproducibility/mesh_5_7.rds')
+mesh_jw$loc <- mesh_jw$loc / sd_x
+
+mesh_jw$n
+ggplot(BS) + gg(mesh_jw) + geom_point(aes(x = east, y = north)) + coord_fixed()
+
+# Create new mesh
 cutoff_dist = 0.3 # 20km
 cutoff_outer = 2 * cutoff_dist
 
-mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
-                      boundary = CA_border,
-                      offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                      cutoff = cutoff_dist,
-                      min.angle = 26)
-
-ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
+mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
+                        # boundary = CA_border,
+                        offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
+                        cutoff = cutoff_dist,
+                        min.angle = 26)
 
 mesh$n
+ggplot(BS) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
 # Maybe we should consider set the PC prior using data info
-spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
-                                alpha = 2, 
+spde_obj <- inla.spde2.pcmatern(mesh = mesh,
+                                alpha = 2,
                                 prior.range = c(0.1, 0.01),
                                 prior.sigma = c(1, 0.01),
                                 constr = T)
 
-# Prepare explanatory variabels ====================================================================
+# Prepare explanatory variables ====================================================================
 
-PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
-PM10s$locs <- coordinates(PM10s[, c("east", "north")])
-PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
+BS2$time <- (BS2$year - min(BS2$year)) / (max(BS2$year) - min(BS2$year))
+BS2$locs <- coordinates(BS2[, c("east", "north")])
+BS2$site_number <- as.numeric(as.factor(BS2$site))
 
 # Site-selection indicator
-PM10s$R <- as.numeric(!is.na(PM10s$annual_mean))
-PM10s$R_lag <- c(rep(NA, no_sites), PM10s$R[1:(dim(PM10s)[1]-no_sites)])
+BS2$R <- as.numeric(!is.na(BS2$bsmoke))
+BS2$R_lag <- c(rep(NA, no_sites), BS2$R[1:(dim(BS2)[1]-no_sites)])
 
 # Response variable for the auxiliary model
-PM10s$zero <- 0
+BS2$zero <- 0
 
 # Compute Euclidean distances between all the sites
-dists <- spDists(cbind(PM10s$east[1:no_sites], PM10s$north[1:no_sites]))
+dists <- spDists(cbind(BS$east, BS$north))
 
 r <- 0.1 # The maximum radius of interest to be 10 km
-PM10s$repulsion_ind <- 0
+BS2$repulsion_ind <- 0
 
 counter <- no_sites + 1
-for (i in sort(unique(PM10s$year))[-1]) {
+for (i in sort(unique(BS2$year))[-1]) {
   # First extract the data at time i
-  data_i <- PM10s[PM10s$year == i, ]
+  data_i <- BS2[BS2$year == i, ]
   # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it?
-  PM10s$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(dists[, which(data_i$R_lag==1)] < r) > 0
+  BS2$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(dists[, which(data_i$R_lag==1)] < r) > 0
   counter <- counter + no_sites
 }
 
@@ -157,37 +163,37 @@ like_select <- like(
   formula = selection ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_slc + I_slc + AR_slc + Spatial_slc +
     Comp_share1 + Comp_share2.
   family = "binomial",
-  Ntrials = rep(1,times = length(PM10s$R))
+  Ntrials = rep(1,times = length(BS2$R))
   )
 
 
 theta.ini <- fit_bru$mode$theta
 bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
 
-fit_bru <- bru(comp, like_obs, like_aux_1, like_aux_2, like_select, data = PM10s)
+fit_bru <- bru(comp, like_obs, like_aux_1, like_aux_2, like_select, data = BS2)
 
 
 # Predict at grid ==================================================================================
 
 pred_bru <- predict(fit_bru, 
-                    PM10s, 
+                    BS2, 
                     ~ exp(Intercept + Time_1 + Time_2 + Random_0 + Random_1 + Spatial_0 + Spatial_1 + Spatial_2), 
                     n.samples = 1000)
 
-pred_bru$year <- PM10s$year
+pred_bru$year <- BS2$year
 pred_summary <- group_by(pred_bru, year) %>%
   summarise(annual_mean = mean(mean),
             annual_sd = mean(sd))
 
-pm_summary <- group_by(PM10s, year) %>%
-  summarise(annual_mean_exp = mean(exp(annual_mean), na.rm=TRUE))
+bs_summary <- group_by(BS2, year) %>%
+  summarise(annual_mean_exp = mean(exp(bsmoke), na.rm=TRUE))
 
 ggplot(pred_summary) +
   geom_line(aes(x = year, y = annual_mean)) +
-  geom_line(aes(x = year, y = pm_summary$annual_mean_exp), col='blue') +
+  geom_line(aes(x = year, y = bs_summary$annual_mean_exp), col='blue') +
   geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
   xlab("Year") +
-  ylab("PM10")
+  ylab("BlackSmoke")
 
 
 # Plot the marginal pdf of individual effect, fixed or random.
