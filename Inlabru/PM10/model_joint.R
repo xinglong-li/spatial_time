@@ -109,24 +109,23 @@ comp <- ~ Intercept_obs(1) + # Components for observation model
   Spatial_obs_0(locs, model = spde_obj) +
   Spatial_obs_1(locs, weights = time, model = spde_obj) +
   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
-  # Components for 1st auxiliary model
-  Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
-  Random_aux1_1(site_number, weights = time, copy = "Random_obs_1", fixed = TRUE) +
-  Comp_aux1(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
-  # Components for 2nd auxiliary model
-  Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
-  Spatial_aux2_1(locs, weights = time, copy = "Spatial_obs_1", fixed = TRUE) +
-  Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
-  Comp_aux2(locs, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+  # # Components for 1st auxiliary model
+  # Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
+  # Random_aux1_1(site_number, weights = time, copy = "Random_obs_1", fixed = TRUE) +
+  # Comp_aux1(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+  # # Components for 2nd auxiliary model
+  # Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
+  # Spatial_aux2_1(locs, weights = time, copy = "Spatial_obs_1", fixed = TRUE) +
+  # Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
+  # Comp_aux2(locs, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
   # Components for site selection model
   Intercept_slc(1) + Time_slc_1(time) +
   Time_slc_2(time^2) +
   R_lag_slc(R_lag) +
   Repuls_slc(repulsion_ind) +
-  AR_slc(year, model='ar1',
-         hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
+  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
-  Comp_share1(site_number, copy = 'Comp_aux1') +
+  # Comp_share1(site_number, copy = 'Comp_aux1') +
   Comp_share2(locs, copy = 'Comp_aux2')
 
 
@@ -147,7 +146,7 @@ like_aux_1 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 - Comp_aux2,
+  formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   options = list(prec = list(initial = 20, fixed=TRUE)),
   data = PM10s
@@ -156,8 +155,9 @@ like_aux_2 <- like(
 like_slc <- like(
   formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
     AR_slc + 
-    Spatial_slc +
-    Comp_share1 + Comp_share2,
+    Spatial_slc, #+
+    # Comp_share1 + 
+    #Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -173,8 +173,9 @@ bru_options_set(bru_max_iter = 1,
 
 # fit_bru_obs <- bru(comp, like_obs)
 # fit_bru_slc <- bru(comp, like_slc)
+# fit_bru_aux1 <- bru(comp, like_aux_1)
 
-fit_bru_joint <- bru(comp, like_obs, like_aux_1, like_aux_2, like_slc)
+fit_bru_joint <- bru(comp, like_obs, like_slc)
 
 
 # Predict at grid ==================================================================================
