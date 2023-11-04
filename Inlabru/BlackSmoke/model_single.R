@@ -19,6 +19,7 @@ xy_in = readRDS("./Data/Reproducibility/xy_in.rds")
 BS <- BlackSmokePrefData
 sd_x <- sd(BS[, 2])
 BS[, c(2,3)] <- BS[, c(2,3)] / sd_x
+
 ggplot(BS) + geom_point(aes(x = east, y = north)) + coord_equal()
 
 # Reshape the data with one observation per row (required by INLA)
@@ -48,9 +49,18 @@ ggplot(data = var_annual, aes(x = year, y = var_bs)) +
 
 
 # Prepare the GB border shape file =================================================================
+gb_jw <- st_read(dsn = "/Users/Xinglong/Downloads/UK_Shapefiles", layer = "uk_BNG")
 
-# gb_boundary <- read_sf(dsn = "/Users/Xinglong/Downloads/gb_2011", layer = "infuse_gb_2011_clipped")
-# gb_boundary <- gb_boundary$geometry
+gb_jw <- as(gb_jw$geometry, "Spatial")
+ggplot(BS) + coord_equal()  + gg(gb_jw) + geom_point(aes(x = east, y = north))
+
+# # OSGB36
+# 
+# gb_boundary <- st_read(dsn = "/Users/Xinglong/Downloads/GB_shapefile", layer = "gb_1km")
+# gb_boundary_km <- st_transform(gb_boundary, 27700)
+# gb_boundary <- as_Spatial(gb_boundary_km$geometry)
+# ggplot() + coord_equal()  + gg(gb_boundary)
+# gb_boundary_km <- st_transform(gb_boundary, "+proj = tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +nadgrids=OSTN15_NTv2_OSGBtoETRS.gsb +units=m +no_defs +type=crs")
 # km_proj <- CRS("+proj=utm +zone=30 + ellps=WGS84 +units=km")
 # gb_boundary_km <- st_transform(gb_boundary, km_proj)
 # plot(gb_boundary_km)
@@ -81,6 +91,8 @@ ggplot(data = var_annual, aes(x = year, y = var_bs)) +
 # gb_boundary_km_scaled <- sp::SpatialPolygonsDataFrame(Polys.sp, data = gb_boundary_km@data)
 # 
 # saveRDS(ca_boundary_km_scaled, sprintf("%sCA_border_scaled.rds", result_path))
+# 
+# ggplot(BS) + geom_point(aes(x = east, y = north)) + coord_equal()  + gg(gb_boundary_km)
 
 
 # Prepare variables for the model ==================================================================
@@ -97,7 +109,7 @@ cutoff_dist = 0.3 # 20km
 cutoff_outer = 2 * cutoff_dist
 
 mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
-                        # boundary = ,
+                        boundary = gb_boundary,
                         offset = c(0.1, 0.2), 
                         max.edge = c(cutoff_dist, cutoff_outer),
                         cutoff = cutoff_dist,
