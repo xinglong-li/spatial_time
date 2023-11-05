@@ -17,8 +17,8 @@ xy_in = readRDS("./Data/Reproducibility/xy_in.rds")
 
 # Standardize the location
 BS <- BlackSmokePrefData
-# sd_x <- sd(BS[, 2])
-# BS[, c(2,3)] <- BS[, c(2,3)] / sd_x
+sd_x <- sd(BS[, 2])
+BS[, c(2,3)] <- BS[, c(2,3)] / sd_x
 
 ggplot(BS) + geom_point(aes(x = east, y = north)) + coord_equal()
 
@@ -49,102 +49,36 @@ ggplot(data = var_annual, aes(x = year, y = var_bs)) +
 
 
 # Prepare the GB border shape file =================================================================
-gb_jw <- st_read(dsn = "/Users/Xinglong/Downloads/UK_Shapefiles", layer = "uk_BNG")
-a <-st_combine(gb_jw)
-gb_a <- as(a, "Spatial")
-gb_jw <- as(gb_jw$geometry, "Spatial")
-ggplot(BS2) + coord_equal()  + gg(gb_a) + geom_point(aes(x = east, y = north))
 
+# Read in the map & make use it is in the same CRS: OSGB36, with reference number 27700 in sf package
+uk_border <- st_read(dsn = "/Users/Xinglong/Downloads/infuse_uk_2011", layer = "infuse_uk_2011")
+uk_border <- st_transform(uk_border$geometry, 27700) 
 
-# Create new mesh
-cutoff_dist = 0.8 # 20km
-cutoff_outer = 2 * cutoff_dist
+# Rescale the coordinates
+bord <- (uk_border / matrix(data = c(sd_x, sd_x), ncol = 2)) %>%
+  as("Spatial")
 
-mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
-                        boundary = gb_a,
-                        offset = c(0.1, 0.2), 
-                        max.edge = c(cutoff_dist, cutoff_outer),
-                        cutoff = cutoff_dist,
-                        min.angle = 26)
-
-gb_boundary <- st_read(dsn = "/Users/Xinglong/Downloads/infuse_uk_2011", layer = "infuse_uk_2011")
-gb_boundary <- st_transform(gb_boundary$geometry, 27700)
-gb_a <- as(gb_boundary, "Spatial")
-ggplot() + gg(gb_a) + coord_equal()
-# Create new mesh
-cutoff_dist = 10000. # 20km
-cutoff_outer = 5 * cutoff_dist
-
-mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
-                        boundary = gb_a,
-                        offset = c(10000, 20000), 
-                        max.edge = c(cutoff_dist, cutoff_outer),
-                        cutoff = cutoff_dist,
-                        min.angle = 26)
-
-# # OSGB36
-# 
-# gb_boundary <- st_read(dsn = "/Users/Xinglong/Downloads/GB_shapefile", layer = "gb_1km")
-# gb_boundary_km <- st_transform(gb_boundary, 27700)
-# gb_boundary <- as_Spatial(gb_boundary_km$geometry)
-# ggplot() + coord_equal()  + gg(gb_boundary)
-# gb_boundary_km <- st_transform(gb_boundary, "+proj = tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +nadgrids=OSTN15_NTv2_OSGBtoETRS.gsb +units=m +no_defs +type=crs")
-# km_proj <- CRS("+proj=utm +zone=30 + ellps=WGS84 +units=km")
-# gb_boundary_km <- st_transform(gb_boundary, km_proj)
-# plot(gb_boundary_km)
-# # saveRDS(ca_boundary_km, sprintf("%sCA_border.rds", result_path))
-# # Re-scale coordinates of CA boundary
-# # Extract coordinates and put them in a list
-# extractCoords <- function(sp.df)
-# {
-#   results <- list()
-#   for(i in 1:length(sp.df@polygons[[1]]@Polygons))
-#   {
-#     results[[i]] <- sp.df@polygons[[1]]@Polygons[[i]]@coords
-#   }
-#   results
-# }
-# 
-# vertices <- st_coordinates(gb_boundary_km)
-# 
-# scaled.vertices <- lapply(vertices, function(x) x / 100)
-# 
-# #Create Polygons and Spatial Polygons Data Frame from scaled list of coordinates
-# Polys <- list()
-# for (i in 1:length(scaled.vertices)) {
-#   Polys[i] <- sp::Polygon(scaled.vertices[[i]])
-# }
-# Polys.plural <- sp::Polygons(Polys, ID = "0")
-# Polys.sp <- sp::SpatialPolygons(list(Polys.plural), proj4string = km_proj)
-# gb_boundary_km_scaled <- sp::SpatialPolygonsDataFrame(Polys.sp, data = gb_boundary_km@data)
-# 
-# saveRDS(ca_boundary_km_scaled, sprintf("%sCA_border_scaled.rds", result_path))
-# 
-# ggplot(BS) + geom_point(aes(x = east, y = north)) + coord_equal()  + gg(gb_boundary_km)
+ggplot(BS2) + gg(bord) + geom_point(aes(x = east, y = north), color = "blue") + coord_equal()
 
 
 # Prepare variables for the model ==================================================================
 
 # The mesh grid used by Joe 
 mesh_jw <- readRDS('./Data/Reproducibility/mesh_5_7.rds')
-mesh_jw$loc <- mesh_jw$loc / sd_x
+mesh_jw$n  # equals 8695
+ggplot(BS2) + gg(mesh_jw) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
 
-mesh_jw$n
-ggplot(BS) + gg(mesh_jw) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
 # Create new mesh
-cutoff_dist = 0.3 # 20km
-cutoff_outer = 2 * cutoff_dist
-
+edg_in = 0.15 # The range set to be [0.03, 0.15]
+edg_out = 4 * edg_in
 mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
-                        boundary = gb_a,
-                        offset = c(0.1, 0.2), 
-                        max.edge = c(cutoff_dist, cutoff_outer),
-                        cutoff = cutoff_dist,
-                        min.angle = 26)
-
+                        boundary = bord,
+                        offset = c(2*edg_in, edg_out),
+                        max.edge = 4*c(edg_in, edg_out),
+                        cutoff = edg_in)
 mesh$n
-ggplot(BS) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
+ggplot(BS2) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
 
 # Maybe we should consider set the PC prior using data infor
 spde_obj <- inla.spde2.pcmatern(mesh = mesh,
