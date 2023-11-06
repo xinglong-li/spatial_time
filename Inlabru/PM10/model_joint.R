@@ -54,10 +54,10 @@ cutoff_dist = 1. # 20km
 cutoff_outer = 2 * cutoff_dist
 
 mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
-                      boundary = CA_border,
-                      offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                      cutoff = cutoff_dist,
-                      min.angle = 26)
+                       boundary = CA_border,
+                       offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
+                       cutoff = cutoff_dist,
+                       min.angle = 26)
 
 ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
 
