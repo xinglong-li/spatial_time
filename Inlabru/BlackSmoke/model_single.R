@@ -63,14 +63,14 @@ ggplot(BS2) + gg(bord) + geom_point(aes(x = east, y = north), color = "blue") + 
 
 # Prepare variables for the model ==================================================================
 
-# # The mesh grid used by Joe 
-# mesh_jw <- readRDS('./Data/Reproducibility/mesh_5_7.rds')
-# mesh_jw$n  # equals 8695
-# ggplot(BS2) + gg(mesh_jw) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
+# The mesh grid used by Joe
+mesh_jw <- readRDS('./Data/Reproducibility/mesh_5_7.rds')
+mesh_jw$n  # equals 8695
+ggplot(BS2) + gg(mesh_jw) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
 
 
 # Create new mesh
-edg_in = 0.15 # The range set to be [0.03, 0.15]
+edg_in = 0.1 # The range set to be [0.03, 0.15]
 edg_out = 4 * edg_in
 mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
                         boundary = bord,
