@@ -50,9 +50,12 @@ ggplot(data = var_annual, aes(x = year, y = var_bs)) +
 
 # Prepare the GB border shape file =================================================================
 
-# Read in the map & make use it is in the same CRS: OSGB36, with reference number 27700 in sf package
-uk_border <- st_read(dsn = "/Users/Xinglong/Downloads/infuse_uk_2011", layer = "infuse_uk_2011")
-uk_border <- st_transform(uk_border$geometry, 27700) 
+# # Read in the map & make use it is in the same CRS: OSGB36, with reference number 27700 in sf package
+# uk_border <- st_read(dsn = "/Users/Xinglong/Downloads/infuse_uk_2011", layer = "infuse_uk_2011")
+# uk_border <- st_transform(uk_border$geometry, 27700) 
+
+# saveRDS(uk_border, sprintf("%s/uk_border.rds", "./Inlabru/BlackSmoke"))
+uk_border <- readRDS("./Inlabru/BlackSmoke/uk_border.rds")
 
 # Rescale the coordinates
 bord <- (uk_border / matrix(data = c(sd_x, sd_x), ncol = 2)) %>%
@@ -136,8 +139,9 @@ like_obs <- like(
   data = BS2
 )
 
-bru_options_set(bru_max_iter = 1,
-                control.inla = list(strategy = "gaussian", int.strategy = 'eb'))
+bru_options_set(bru_max_iter = 5,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
+                verbose = TRUE)
 
 fit_bru_obs <- bru(comp_obs, like_obs)
 
