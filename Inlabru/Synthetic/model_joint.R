@@ -12,8 +12,7 @@ library(inlabru)
 
 # Load data 
 load("./Reproducibility/Data2Joe.RData")
-# Load the indicator telling us if the mesh vertices lie in GB
-xy_in = readRDS("./Data/Reproducibility/xy_in.rds") 
+
 
 # Standardize the location
 BS <- BlackSmokePrefData
@@ -73,21 +72,22 @@ ggplot(BS2) + gg(bord) + geom_point(aes(x = east, y = north), color = "blue") + 
 
 
 # Create new mesh
-edg_in = 0.25 # The range set to be [0.03, 0.15]
-edg_out = 4 * edg_in
+edg_in = 0.2 # The range set to be [0.03, 0.15]
+edg_out = 2 * edg_in
 mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
                         boundary = bord,
                         offset = c(2*edg_in, edg_out),
-                        max.edge = 3*c(edg_in, edg_out),
-                        cutoff = edg_in)
+                        max.edge = 2*c(edg_in, edg_out),
+                        cutoff = edg_in,
+                        min.angle = 21)
 mesh$n
 ggplot(BS2) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
 
 # Maybe we should consider set the PC prior using data infor
 spde_obj <- inla.spde2.pcmatern(mesh = mesh,
                                 alpha = 2,
-                                prior.range = c(0.04, 0.05),
-                                prior.sigma = c(1, 0.01),
+                                prior.range = c(edg_in, 0.1),
+                                prior.sigma = c(0.5, 0.01),
                                 constr = T)
 
 # Prepare explanatory variables ====================================================================
