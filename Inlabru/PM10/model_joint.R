@@ -1,15 +1,18 @@
 library(dplyr)
+library(sf)
 library(sp)
 library(reshape2)
 library(INLA)
 library(ggplot2)
 library(inlabru)
 
-path <- "./PM10/"
+
+
+# Prepare the data =================================================================================
 
 # Load the (scaled) locations of sites and the border of California(the unit is 100km) =============
 # The data also excludes sites that contain outlier records (site_number = 0030 and 0022).
-
+path <- "./PM10/"
 PM10s0 <- readRDS(sprintf("%sPM10s_CA_summary_scaled.rds", path))
 print(sprintf("Total number of annual measurements: %s", dim(PM10s0)[1]))
 print(sprintf("Total number of sites: %s", length(unique(PM10s0$site_number))))
@@ -48,29 +51,7 @@ variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_pm)) +
 ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
 
-# Build the INLA mesh ==============================================================================
-
-cutoff_dist = 1. # 20km
-cutoff_outer = 2 * cutoff_dist
-
-mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
-                       boundary = CA_border,
-                       offset = c(0.1, 0.2), max.edge = c(cutoff_dist, cutoff_outer),
-                       cutoff = cutoff_dist,
-                       min.angle = 26)
-
-ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north)) + coord_fixed()
-
-mesh$n
-
-# Maybe we should consider set the PC prior using data info
-spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
-                                alpha = 2, 
-                                prior.range = c(0.1, 0.01),
-                                prior.sigma = c(1, 0.01),
-                                constr = T)
-
-# Prepare explanatory variabels ====================================================================
+# Prepare variables for the model ==================================================================
 
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(PM10s[, c("east", "north")])
@@ -98,10 +79,82 @@ for (i in sort(unique(PM10s$year))[-1]) {
   counter <- counter + no_sites
 }
 
+# Create mesh
+edge_in = 0.2 # 20km
+edge_out = 2 * edge_in
+mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
+                       boundary = CA_border,
+                       offset = c(2*edge_in, edge_out), 
+                       max.edge = 2*c(edge_in, edge_out),
+                       cutoff = edge_in,
+                       min.angle = 21)
+mesh$n
+ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
+
+# Maybe we should consider set the PC prior using data info
+spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
+                                alpha = 2, 
+                                prior.range = c(edge_in, 0.01),
+                                prior.sigma = c(sqrt(mean(var_annual$var_pm)), 0.01),
+                                constr = T)
+
 # Build inlabru model ==============================================================================
 
-# All components for the joint model
-comp <- ~ Intercept_obs(1) + # Components for observation model
+# Model for the observation process ----------------------------------------------------------------
+
+comp_obs <- ~ Intercept_obs(1) +
+  Time_obs_1(time) +
+  Time_obs_2(time^2) +
+  Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
+  Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
+  Spatial_obs_0(locs, model = spde_obj) +
+  Spatial_obs_1(locs, weights = time, model = spde_obj) +
+  Spatial_obs_2(locs, weights = time^2, model = spde_obj)
+
+like_obs <- like(
+  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+    Random_obs_0 + Random_obs_1 + 
+    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
+  family = "gaussian",
+  data = PM10s
+)
+
+bru_options_reset()
+bru_options_set(bru_max_iter = 5,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
+                bru_verbose = T)
+
+fit_bru_obs <- bru(comp_obs, like_obs)
+
+# Model for the selection process ------------------------------------------------------------------
+
+comp_slc <- ~ Intercept_slc(1) + 
+  Time_slc_1(time) +
+  Time_slc_2(time^2) +
+  R_lag_slc(R_lag) +
+  Repuls_slc(repulsion_ind) +
+  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
+  Spatial_slc(locs, model = spde_obj) 
+
+like_slc <- like(
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
+    AR_slc + 
+    Spatial_slc,
+  family = "binomial",
+  Ntrials = rep(1, times = length(PM10s$R)),
+  data = PM10s
+)
+
+bru_options_reset()
+bru_options_set(bru_max_iter = 5,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
+                bru_verbose = T)
+
+fit_bru_slc <- bru(comp_slc, like_slc)
+
+# Joint independent model --------------------------------------------------------------------------
+
+comp_joint_indep <- ~ Intercept_obs(1) + # Components for observation model
   Time_obs_1(time) +
   Time_obs_2(time^2) +
   Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
@@ -109,15 +162,52 @@ comp <- ~ Intercept_obs(1) + # Components for observation model
   Spatial_obs_0(locs, model = spde_obj) +
   Spatial_obs_1(locs, weights = time, model = spde_obj) +
   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
-  # # Components for 1st auxiliary model
-  # Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
-  # Random_aux1_1(site_number, weights = time, copy = "Random_obs_1", fixed = TRUE) +
-  # Comp_aux1(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
-  # # Components for 2nd auxiliary model
-  # Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
-  # Spatial_aux2_1(locs, weights = time, copy = "Spatial_obs_1", fixed = TRUE) +
-  # Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
-  # Comp_aux2(locs, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+  
+  # Components for site selection model
+  Intercept_slc(1) + Time_slc_1(time) +
+  Time_slc_2(time^2) +
+  R_lag_slc(R_lag) +
+  Repuls_slc(repulsion_ind) +
+  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
+  Spatial_slc(locs, model = spde_obj) 
+
+like_obs <- like(
+  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+    Random_obs_0 + Random_obs_1 + 
+    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
+  family = "gaussian",
+  data = PM10s
+)
+
+like_slc <- like(
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
+    AR_slc + 
+    Spatial_slc,
+  family = "binomial",
+  Ntrials = rep(1, times = length(PM10s$R)),
+  data = PM10s
+)
+
+bru_options_reset()
+bru_options_set(bru_max_iter = 5,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
+                # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
+                # restart = TRUE),
+                bru_verbose = T)
+
+fit_bru_joint_indep <- bru(comp_joint_indep, like_obs, like_slc)
+
+# Joint Auxiliary model 1 --------------------------------------------------------------------------
+
+comp_aux_1 <- ~ Intercept_obs(1) + # Components for observation model
+  Time_obs_1(time) +
+  Time_obs_2(time^2) +
+  Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
+  Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
+  Spatial_obs_0(locs, model = spde_obj) +
+  Spatial_obs_1(locs, weights = time, model = spde_obj) +
+  Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
+  
   # Components for site selection model
   Intercept_slc(1) + Time_slc_1(time) +
   Time_slc_2(time^2) +
@@ -125,8 +215,12 @@ comp <- ~ Intercept_obs(1) + # Components for observation model
   Repuls_slc(repulsion_ind) +
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
-  # Comp_share1(site_number, copy = 'Comp_aux1') +
-  Comp_share2(locs, copy = 'Comp_aux2')
+  Comp_share1(site_number, copy = 'Comp_aux1', fixed = FALSE) + 
+  
+  # Components for 1st auxiliary model
+  Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
+  Random_aux1_1(site_number, weights = time, copy = "Random_obs_1", fixed = TRUE) +
+  Comp_aux1(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE)))
 
 
 # All likelihoods
@@ -138,44 +232,174 @@ like_obs <- like(
   data = PM10s
 )
 
-like_aux_1 <- like(
-  formula = zero ~ Random_aux1_0 + Random_aux1_1 - Comp_aux1,
-  family = "gaussian",
-  options = list(prec = list(initial = 20, fixed=TRUE)),
-  data = PM10s
-)
-
-like_aux_2 <- like(
-  formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
-  family = "gaussian",
-  options = list(prec = list(initial = 20, fixed=TRUE)),
-  data = PM10s
-)
-
-like_slc <- like(
+like_slc_share_1 <- like(
   formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
     AR_slc + 
-    Spatial_slc, #+
-    # Comp_share1 + 
-    #Comp_share2,
+    Spatial_slc + Comp_share1,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
 )
 
+like_aux_1 <- like(
+  formula = zero ~ Random_aux1_0 + Random_aux1_1 + Comp_aux1,
+  family = "gaussian",
+  data = PM10s
+)
 
-# theta.ini <- fit_bru$mode$theta
-# bru_options_set(control.mode = list(theta = theta.ini, restart = TRUE))
+bru_options_reset()
+bru_options_set(bru_max_iter = 5,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
+                # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
+                #                     restart = TRUE),
+                control.family = list(
+                  list(),
+                  list(),
+                  list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
+                bru_verbose = T)
+
+fit_bru_aux_1 <- bru(comp_aux_1, like_obs, like_slc_share_1, like_aux_1)
+
+# Joint Auxiliary model 2 --------------------------------------------------------------------------
+
+comp_aux_2 <- ~ Intercept_obs(1) + # Components for observation model
+  Time_obs_1(time) +
+  Time_obs_2(time^2) +
+  Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
+  Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
+  Spatial_obs_0(locs, model = spde_obj) +
+  Spatial_obs_1(locs, weights = time, model = spde_obj) +
+  Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
+  
+  # Components for site selection model
+  Intercept_slc(1) + Time_slc_1(time) +
+  Time_slc_2(time^2) +
+  R_lag_slc(R_lag) +
+  Repuls_slc(repulsion_ind) +
+  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
+  Spatial_slc(locs, model = spde_obj) +
+  Comp_share2(site_number, copy = 'Comp_aux2', fixed = TRUE) +
+  
+  # Components for 2nd auxiliary model
+  Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
+  Spatial_aux2_1(locs, weights = time, copy = "Spatial_obs_1", fixed = TRUE) +
+  Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
+  Comp_aux2(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE)))
+
+# All likelihoods
+like_obs <- like(
+  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+    Random_obs_0 + Random_obs_1 + 
+    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
+  family = "gaussian",
+  data = PM10s
+)
+
+like_slc_share_2 <- like(
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
+    AR_slc + 
+    Spatial_slc,# + Comp_share2,
+  family = "binomial",
+  Ntrials = rep(1, times = length(PM10s$R)),
+  data = PM10s
+)
+
+like_aux_2 <- like(
+  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  family = "gaussian",
+  data = PM10s
+)
+
+bru_options_reset()
+bru_options_set(bru_max_iter = 5,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
+                # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
+                #                     restart = TRUE),
+                control.family = list(
+                  list(),
+                  list(),
+                  list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
+                bru_verbose = T)
+
+fit_bru_aux_2 <- bru(comp_aux_2, like_obs, like_slc_share_2, like_aux_2)
 
 
-bru_options_set(bru_max_iter = 1,
-                control.inla = list(strategy = "gaussian", int.strategy = 'eb'))
+# Joint preferential sampling model ----------------------------------------------------------------
 
-# fit_bru_obs <- bru(comp, like_obs)
-# fit_bru_slc <- bru(comp, like_slc)
-# fit_bru_aux1 <- bru(comp, like_aux_1)
+comp_aux <- ~ Intercept_obs(1) + # Components for observation model
+  Time_obs_1(time) +
+  Time_obs_2(time^2) +
+  Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
+  Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
+  Spatial_obs_0(locs, model = spde_obj) +
+  Spatial_obs_1(locs, weights = time, model = spde_obj) +
+  Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
+  
+  # Components for site selection model
+  Intercept_slc(1) + Time_slc_1(time) +
+  Time_slc_2(time^2) +
+  R_lag_slc(R_lag) +
+  Repuls_slc(repulsion_ind) +
+  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
+  Spatial_slc(locs, model = spde_obj) +
+  Comp_share1(site_number, copy = 'Comp_aux1', fixed = FALSE) + 
+  Comp_share2(site_number, copy = 'Comp_aux2', fixed = TRUE) +
+  
+  # Components for 1st auxiliary model
+  Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
+  Random_aux1_1(site_number, weights = time, copy = "Random_obs_1", fixed = TRUE) +
+  Comp_aux1(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+  
+  # Components for 2nd auxiliary model
+  Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
+  Spatial_aux2_1(locs, weights = time, copy = "Spatial_obs_1", fixed = TRUE) +
+  Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
+  Comp_aux2(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE)))
 
-fit_bru_joint <- bru(comp, like_obs, like_slc)
+
+# All likelihoods
+like_obs <- like(
+  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+    Random_obs_0 + Random_obs_1 + 
+    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
+  family = "gaussian",
+  data = PM10s
+)
+
+like_slc_share <- like(
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
+    AR_slc + 
+    Spatial_slc + Comp_share1 + Comp_share2,
+  family = "binomial",
+  Ntrials = rep(1, times = length(PM10s$R)),
+  data = PM10s
+)
+
+like_aux_1 <- like(
+  formula = zero ~ Random_aux1_0 + Random_aux1_1 + Comp_aux1,
+  family = "gaussian",
+  data = PM10s
+)
+
+like_aux_2 <- like(
+  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  family = "gaussian",
+  data = PM10s
+)
+
+bru_options_reset()
+bru_options_set(bru_max_iter = 10,
+                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
+                # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
+                #                     restart = TRUE),
+                control.family = list(
+                  list(),
+                  list(),
+                  list(hyper = list(prec = list(initial = 20, fixed=TRUE))),
+                  list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
+                bru_verbose = T)
+
+fit_bru_aux <- bru(comp_aux, like_obs, like_slc_share, like_aux_1, like_aux_2)
 
 
 # Predict at grid ==================================================================================

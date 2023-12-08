@@ -3,6 +3,7 @@ library(sf)
 library(sp)
 library(reshape2)
 library(INLA)
+
 library(ggplot2)
 library(inlabru)
 
@@ -403,7 +404,6 @@ like_aux_2 <- like(
   family = "gaussian",
   data = BS2
 )
-
 
 bru_options_reset()
 bru_options_set(bru_max_iter = 10,
