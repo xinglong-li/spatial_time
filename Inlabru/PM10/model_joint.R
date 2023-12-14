@@ -10,7 +10,7 @@ library(inlabru)
 
 # Prepare the data =================================================================================
 
-# Load the (scaled) locations of sites and the border of California(the unit is 100km) =============
+# Load the (scaled) locations of sites and the border of California(the unit is 100km)
 # The data also excludes sites that contain outlier records (site_number = 0030 and 0022).
 path <- "./PM10/"
 PM10s0 <- readRDS(sprintf("%sPM10s_CA_summary_scaled.rds", path))
@@ -137,9 +137,8 @@ comp_slc <- ~ Intercept_slc(1) +
   Spatial_slc(locs, model = spde_obj) 
 
 like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -180,9 +179,8 @@ like_obs <- like(
 )
 
 like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -233,9 +231,8 @@ like_obs <- like(
 )
 
 like_slc_share_1 <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc + Comp_share1,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + Comp_share1,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -258,7 +255,10 @@ bru_options_set(bru_max_iter = 5,
                   list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
                 bru_verbose = T)
 
+start_time_aux1 <- Sys.time()
 fit_bru_aux_1 <- bru(comp_aux_1, like_obs, like_slc_share_1, like_aux_1)
+end_time_aux1 <- Sys.time()
+runtime_aux_1 <- end_time_aux1 - start_time_aux1
 
 # Joint Auxiliary model 2 --------------------------------------------------------------------------
 
@@ -278,7 +278,7 @@ comp_aux_2 <- ~ Intercept_obs(1) + # Components for observation model
   Repuls_slc(repulsion_ind) +
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
-  Comp_share2(site_number, copy = 'Comp_aux2', fixed = TRUE) +
+  Comp_share2(site_number, copy = 'Comp_aux2', fixed = FALSE) +
   
   # Components for 2nd auxiliary model
   Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
@@ -296,9 +296,8 @@ like_obs <- like(
 )
 
 like_slc_share_2 <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc,# + Comp_share2,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -343,7 +342,7 @@ comp_aux <- ~ Intercept_obs(1) + # Components for observation model
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
   Comp_share1(site_number, copy = 'Comp_aux1', fixed = FALSE) + 
-  Comp_share2(site_number, copy = 'Comp_aux2', fixed = TRUE) +
+  Comp_share2(site_number, copy = 'Comp_aux2', fixed = FALSE) +
   
   # Components for 1st auxiliary model
   Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
@@ -367,9 +366,9 @@ like_obs <- like(
 )
 
 like_slc_share <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc + Comp_share1 + Comp_share2,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + 
+    Comp_share1 + Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -388,7 +387,7 @@ like_aux_2 <- like(
 )
 
 bru_options_reset()
-bru_options_set(bru_max_iter = 10,
+bru_options_set(bru_max_iter = 20,
                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
                 # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
                 #                     restart = TRUE),

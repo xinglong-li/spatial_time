@@ -80,7 +80,6 @@ BS2$R_lag <- c(rep(NA, no_sites), BS2$R[1:(dim(BS2)[1]-no_sites)])
 
 # Response variable for the auxiliary model
 BS2$zero <- 0
-BS2$zero_1 <- 0
 
 # Compute Euclidean distances between all the sites
 dists <- spDists(cbind(BS$east, BS$north))
@@ -155,9 +154,8 @@ comp_slc <- ~ Intercept_slc(1) +
   Spatial_slc(locs, model = spde_obj) 
 
 like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
   family = "binomial",
   Ntrials = rep(1, times = length(BS2$R)),
   data = BS2
@@ -198,9 +196,8 @@ like_obs <- like(
 )
 
 like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
   family = "binomial",
   Ntrials = rep(1, times = length(BS2$R)),
   data = BS2
@@ -252,9 +249,8 @@ like_obs <- like(
 )
 
 like_slc_share_1 <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc + Comp_share1,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + Comp_share1,
   family = "binomial",
   Ntrials = rep(1, times = length(BS2$R)),
   data = BS2
@@ -277,8 +273,10 @@ bru_options_set(bru_max_iter = 5,
                   list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
                 bru_verbose = T)
 
+start_time_aux1 <- Sys.time()
 fit_bru_aux_1 <- bru(comp_aux_1, like_obs, like_slc_share_1, like_aux_1)
-
+end_time_aux1 <- Sys.time()
+runtime_aux_1 <- end_time_aux1 - start_time_aux1
 
 # Joint Auxiliary model 2 --------------------------------------------------------------------------
 
@@ -316,9 +314,8 @@ like_obs <- like(
 )
 
 like_slc_share_2 <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc + Comp_share2,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(BS2$R)),
   data = BS2
@@ -386,9 +383,9 @@ like_obs <- like(
 )
 
 like_slc_share <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
-    AR_slc + 
-    Spatial_slc + Comp_share1 + Comp_share2,
+  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + 
+    Comp_share1 + Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(BS2$R)),
   data = BS2
@@ -401,16 +398,16 @@ like_aux_1 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero_1 ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   data = BS2
 )
 
 bru_options_reset()
-bru_options_set(bru_max_iter = 10,
+bru_options_set(bru_max_iter = 20,
                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
-                # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
-                #                     restart = TRUE),
+                control.mode = list(theta = c(fit_bru_aux_1$mode$theta, 0),
+                                    restart = TRUE),
                 control.family = list(
                   list(),
                   list(),
@@ -418,8 +415,10 @@ bru_options_set(bru_max_iter = 10,
                   list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
                 bru_verbose = T)
 
+start_time_aux <- Sys.time()
 fit_bru_aux <- bru(comp_aux, like_obs, like_slc_share, like_aux_1, like_aux_2)
-
+end_time_aux <- Sys.time()
+runtime_init <- end_time_aux - start_time_aux
 
 
 # Predict at grid ==================================================================================
