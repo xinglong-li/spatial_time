@@ -170,6 +170,9 @@ A_proj_expand = rbind(A_proj, Ind_mat)
 # Expand the Y with NAs and R with number_unvisited_nodes 0s
 # number_unvisited_nodes per year
 number_unvisited_nodes_per_year = number_unvisited_nodes / no_T
+
+
+
 data_expand = matrix(NA, nrow = number_unvisited_nodes, ncol = dim(BlackSmokePrefData2)[2])
 data_expand = as.array(data_expand)
 colnames(data_expand) = names(BlackSmokePrefData2)
@@ -379,24 +382,24 @@ print('stack joint2 complete')
 # saveRDS(out.naive,file="finalmod_naive2_extended_approx.rds")
 # rm(out.naive)
 #
-# # Fit joint model version 1 - without zeroes over whole grid #
-#  formula_joint1 = alldata ~ -1 + Intercept +
-#    f(spatial.field, model = spde_obj)+ #spatial.field.group) +
-#    f(R.spatial.field, copy = "spatial.field.dummy", fixed = F) +
-#    f(R.spatial.field.copy, model = spde_obj) +
-#    f(spatial.field.copy, I(spatial.field.group.copy/no_T), model = spde_obj) +
-#    f(spatial.field.copy2, I((spatial.field.group.copy2/no_T)^2), model = spde_obj) +
-#    R_lag + year + year_2 + yearR + yearR_2 + repulsion_ind +
-#    f(R_year, model="ar1",hyper=list(theta1=list(prior="pcprec",param=c(2,0.01))))+
-#    I(R_year==1) +
-#    f(spatial.field.dummy, I(-spatial.field.repl.dummy), model="iid", hyper = list(prec = list(initial = -20, fixed=TRUE))) +
-#    f(spatial.field.copy.dummy, copy = "spatial.field", fixed = T) + #, replicate = I(pmax(1,spatial.field.group.copy.dummy-1))
-#    f(spatial.field.copy.dummy2, I(spatial.field.group.copy.dummy2/no_T), copy = "spatial.field.copy", fixed = T) +
-#    f(spatial.field.copy.dummy3, I((spatial.field.group.copy.dummy3/no_T)^2), copy = "spatial.field.copy2", fixed = T) +
-#    f(spatial_ind, model = "iid2d", n = no_sites*2, constr = TRUE) + #random site-specific intercepts
-#    f(spatial_ind2, year, copy = "spatial_ind") + # random site-specific slopes
-#    f(spatial_ind_dummy, copy = "spatial_ind", fixed = T) +
-#    f(spatial_ind_dummy2, time_dummy, copy = 'spatial_ind', fixed = T)
+# Fit joint model version 1 - without zeroes over whole grid #
+ formula_joint1 = alldata ~ -1 + Intercept +
+   f(spatial.field, model = spde_obj)+ #spatial.field.group) +
+   f(R.spatial.field, copy = "spatial.field.dummy", fixed = F) +
+   f(R.spatial.field.copy, model = spde_obj) +
+   f(spatial.field.copy, I(spatial.field.group.copy/no_T), model = spde_obj) +
+   f(spatial.field.copy2, I((spatial.field.group.copy2/no_T)^2), model = spde_obj) +
+   R_lag + year + year_2 + yearR + yearR_2 + repulsion_ind +
+   f(R_year, model="ar1",hyper=list(theta1=list(prior="pcprec",param=c(2,0.01))))+
+   I(R_year==1) +
+   f(spatial.field.dummy, I(-spatial.field.repl.dummy), model="iid", hyper = list(prec = list(initial = -20, fixed=TRUE))) +
+   f(spatial.field.copy.dummy, copy = "spatial.field", fixed = T) + #, replicate = I(pmax(1,spatial.field.group.copy.dummy-1))
+   f(spatial.field.copy.dummy2, I(spatial.field.group.copy.dummy2/no_T), copy = "spatial.field.copy", fixed = T) +
+   f(spatial.field.copy.dummy3, I((spatial.field.group.copy.dummy3/no_T)^2), copy = "spatial.field.copy2", fixed = T) +
+   f(spatial_ind, model = "iid2d", n = no_sites*2, constr = TRUE) + #random site-specific intercepts
+   f(spatial_ind2, year, copy = "spatial_ind") + # random site-specific slopes
+   f(spatial_ind_dummy, copy = "spatial_ind", fixed = T) +
+   f(spatial_ind_dummy2, time_dummy, copy = 'spatial_ind', fixed = T)
 #
 #I(R.spatial.field.group/30) + I((R.spatial.field.group/30)^2) + f(spatial_ind2, copy = 'spatial_ind', fixed=F)
 #f(spatial_ind, model = 'iid',hyper=list(theta=list(prior="loggamma",param=c(2,0.04)))) +
@@ -427,6 +430,17 @@ theta.ini2 = c(2.95712439, -0.39504940, -0.02055101, -2.30589883, -2.52425155, -
 # saveRDS(out.joint1,file="finalmod_joint1_extended_approx.rds")
 # theta.ini3 = out.joint1$mode$theta
 # rm(out.joint1)
+
+
+########## Notes by Xinglong LI:
+# By examining the code: 'spatial.field.dummy' is defined as a 'field' variable
+# but 'spatial.field.dummy2' is defined as a 'indicator' variable, so the proper name should be spatial.ind.dummy,
+# the naming is confusing.
+# So the role of 'spatial.field.dummy' is to copy the spatial mattern effects
+# while 'spatial.field.dummy2' is to copy site specific effects
+# The joint1 model only copies one effect and does not corresponding to 'the second implementation' in the paper,
+# it seems the joint1 one model is a intermediate simplified model
+########## End notes by Xinglong Li
 
 # Fit joint model version 2 #
 formula_joint2 = alldata ~ -1 + Intercept +

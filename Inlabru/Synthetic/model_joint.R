@@ -80,6 +80,7 @@ BS2$R_lag <- c(rep(NA, no_sites), BS2$R[1:(dim(BS2)[1]-no_sites)])
 
 # Response variable for the auxiliary model
 BS2$zero <- 0
+BS2$zero_1 <- 0
 
 # Compute Euclidean distances between all the sites
 dists <- spDists(cbind(BS$east, BS$north))
@@ -297,7 +298,7 @@ comp_aux_2 <- ~ Intercept_obs(1) + # Components for observation model
   Repuls_slc(repulsion_ind) +
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
-  Comp_share2(site_number, copy = 'Comp_aux2', fixed = TRUE) +
+  Comp_share2(site_number, copy = 'Comp_aux2', fixed = FALSE) +
 
   # Components for 2nd auxiliary model
   Spatial_aux2_0(locs, copy = "Spatial_obs_0", fixed = TRUE) +
@@ -317,7 +318,7 @@ like_obs <- like(
 like_slc_share_2 <- like(
   formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + R_lag_slc + Repuls_slc + 
     AR_slc + 
-    Spatial_slc,# + Comp_share2,
+    Spatial_slc + Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(BS2$R)),
   data = BS2
@@ -361,7 +362,7 @@ comp_aux <- ~ Intercept_obs(1) + # Components for observation model
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
   Comp_share1(site_number, copy = 'Comp_aux1', fixed = FALSE) + 
-  Comp_share2(site_number, copy = 'Comp_aux2', fixed = TRUE) +
+  Comp_share2(site_number, copy = 'Comp_aux2', fixed = FALSE) +
   
   # Components for 1st auxiliary model
   Random_aux1_0(site_number, copy = "Random_obs_0", fixed = TRUE) +
@@ -400,7 +401,7 @@ like_aux_1 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  formula = zero_1 ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   data = BS2
 )
