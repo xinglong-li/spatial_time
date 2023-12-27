@@ -398,8 +398,10 @@ bru_options_set(bru_max_iter = 20,
                   list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
                 bru_verbose = T)
 
+start_time_aux <- Sys.time()
 fit_bru_aux <- bru(comp_aux, like_obs, like_slc_share, like_aux_1, like_aux_2)
-
+end_time_aux <- Sys.time()
+runtime_init <- end_time_aux - start_time_aux
 
 # Predict at grid ==================================================================================
 
