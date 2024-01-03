@@ -1,0 +1,205 @@
+\section{The package for preferential sampling}
+We are currently working to develop an R package for the preferential sampling model proposed
+by \cite{Watson2019_pref_samp} which fits an observational model and a site selection model
+that shares latent factors with the observation model. 
+The purpose of this package is to facilitate spatial prediction using the proposed preferential
+sampling model.
+
+Since the joint model is restricted to two mixed effects models (one for the observation process 
+and one for the site-selection process),  we would like to restrict the input of the user to simplify the API. 
+In particular, we want the user to specify only formulas of the two models in addition to the dataset. 
+Given that the two models are both mixed effects models, we would like to use the syntax
+analogous to the that of the \textbf{lme4} package.
+
+Internally, we want to convert the input of the user to proper models of \textbf{inlabru} and fit
+the model using \textbf{inlabru}.
+
+%\section{Background}
+%\cite{Watson2019_pref_samp} proposed a framework that jointly modeling the distribution of an
+%environmental process and a site-selection process, where the environmental process can be spatial,
+%temporal, or spatio-temporal. By sharing the random effects between the two process, the joint
+%model can detect the preferential sampling effects.
+%
+%We consider a spatio-temporal environmental process $Y_{st}$, $s\in \mcS$, $t\in \mcT$.
+%The space-time point is defined $(s, t) \in \mcS \times \mcT$, where $\mcS$ denoting the spatial 
+%domain of interest and $\mcT$ the temporal domain. 
+%Spatial network designer specifies a set of time points $T \subset \mcT$ at which to observe
+%$Y$ and at each time $t \in T$, a finite subset of sites $S_t \subset \mcS$ at which to do so.
+%
+%$R_{st} \in \{0, 1\}$ is a binary response for the site selection process.
+%A Bayesian model is introduced for the joint distribution of the response vector $(Y_{st}, R_{st})$.
+%By sharing random effects across the two processes, the stochastic dependence (if any) between 
+%$Y_{s, t}$ and $R_{s, t}$ and be quantified.
+
+
+%\section{The joint model}
+%We let $Y_i(t)$ denote the spatio-temporal observation process at site $i$, that is at locations 
+%$s_i \in \mcP \subset \mcS$, at time $t \in T$. We let $R_i(t)$ denote the random selection 
+%indicator for site $s_i \in \mcP$ at time $t$. We let $t_1, \ldots, t_N$ denote the $N$ observation
+%times, and let $r_{i, j} \in \{0, 1\}$ denote the realization of $R_i(t_j)$, for $i \in \{1, \ldots, M\}$,
+%$j \in \{1, \ldots, N\}$, where $M = |\mcP|$. The general model framework is
+%\[
+%Y_{i,j} \given R_{i, j} = 1 &\sim f_{Y}(\mu_{i,j}, \theta_Y), \quad f_Y \sim \text{density},\\
+%g(\mu_{i, j}) = \eta_{i, j} &= x_{i, j}^T \gamma + \sum_{k=1}^{q_1}u_{i, j, k}\beta_k(s_i, t_j), 
+%\label{eq:gen_y} \\
+%R_{i, j} &\sim \distBern(p_{i, j}), \\
+%h(p_{i, j}) &= \nu_{i, j} = v_{i, j}^T \alpha + \sum_{\ell =1}^{q_2}d_{\ell}\sum_{k=1}^{q_1}
+%w_{i, j, \ell, k}\beta_k(s_i, \phi_{i, \ell, k}(t_j)) \label{eq:gen_r}\\
+%& + \sum_{m=1}^{q_3} w_{i, j, m}^{\star}\beta_m^{\star}(s_i, t_j), \\
+%\beta_k(s_i, t_j) &\sim \text{(possibly shared) latent effect with parameters}\ \theta_k, \\
+%& k\in \{1, \ldots, q_1\}, \\
+%\beta_m^{\star}(s_i, t_j) &\sim \text{site selection only latent effect with parameters}\ \theta_m^\star, \\
+%& m \in \{1, \ldots, q_3\}, \\
+%\Theta &= (\theta_Y, \alpha, \gamma, d, \theta_1, \ldots, \theta_{q_1}, \theta_1^{\star}, \ldots, \theta_{q_3}^{\star}) \sim \text{Priors}, \\
+%x_{i, j} \in \reals^{p_1}, u_{i, j} &\in \reals^{q_1}, v_{i, j} \in \reals^{p_2}, 
+%W_{i, j} \in \reals^{q_2\times q_1}, w_{i, j}^{\star T} \in \reals^{q_3} 
+%\]
+%
+%In the linear predictor
+%$\eta_{i, j}$, we include a linear combination of fixed covariates $x_{i, j}$ with 
+%a linear combination of $q_1$ latent effects $\beta_k(s_i, t_j)$. These $q_1$ random effects
+%can include any combinations of spatially-correlated processes, temporally correlated processes, 
+%spatial temporal processes and IID random effects. Note that we include the additional fixed
+%covariates $u_{i, j}$ to allow for
+%spatially-varying coefficient models, as well as both random slopes and/or scaled random effects.
+%
+%As for the site selection process $R_{i, j}$, the linear predictor $\nu_{i, j}$ may also include 
+%a linear combination of fixed covariates $v_{i, j}$ with a linear combination of latent effects.
+%In particular, the latent effects appearing in the observation process $Y_{i, j}$ are allowed to exist
+%in the linear predictor of the selection process $R_{i, j}$. The matrix $W_{i, j}$ is fixed
+%beforehand, and allow for $q_2$ linear combinations of the latent effects from the $Y_{i, j}$ 
+%process to be copied across. The parameter vector $d$ determines the degree to which each shared
+%latent effect affects the $R$ process and therefore measure the magnitude and direction of stochastic
+%dependence between the two models term-by-term. These $q_3$ latent effects are independent 
+%from the $Y_{i, j}$ process to exist in the linear predictor.
+
+\section{A preferential sampling model for black smoke data in British}
+We consider a spatio-temporal environmental process $Y_{st}$, $s\in \mcS$, $t\in \mcT$, 
+where $\mcS$ denoting the spatial domain of interest and $\mcT$ the temporal domain. 
+Spatial network designer specifies a set of time points $T \subset \mcT$ at which to observe
+$Y$ and at each time $t \in T$, a finite subset of sites $S_t \subset \mcS$ at which to do so.
+$R_{st} \in \{0, 1\}$ is a binary response for the site selection process.
+A Bayesian model is introduced for the joint distribution of the response vector $(Y_{st}, R_{st})$.
+
+By sharing random effects across the two processes, the stochastic dependence (if any) between 
+$Y_{s, t}$ and $R_{s, t}$ and be quantified.
+\cite{Watson2019_pref_samp} proposed one such preferential sampling model to analyze the 
+black smoke data in British. Let $t_j^{\star}$ denote the $j$th time-scaled observations that lie 
+in the interval $[0, 1]$.
+
+The model for the observation process is
+\[
+Y_{i, j} \given R_{i, j} &\sim \distNorm(\mu_{i, j}, \sigma_{\epsilon}^2) \\
+\mu_{i, j} &= \gamma_0 + \gamma_1 t_j^{\star} + \gamma_2(t_j^{\star})^2 
++ b_{0, i} + b_{1, i}t_j^{\star} 
++ \beta_0(s_i) + \beta_1(s_i)t_j^{\star} + \beta_2(s_i)(t_j^{\star})^2 \label{eq:bs_y}\\
+[\beta_k(s_1), \ldots, \beta_k(s_m)]^T &\distiid \distNorm(0, \Sigma(\zeta_k)) \quad 
+\text{for}\ k \in \{0, 1, 2\}, \quad \Sigma(\zeta_k) = \text{Matern}(\zeta_k) \\
+[b_{0, i}, b_{1, i}]  & \distiid \distNorm(0, \Sigma_b), \quad 
+\Sigma_b = \bmat \sigma_{b, 1}^2 & \rho_b  \\ \rho_b & \sigma_{b, 2}^2 \emat, \\ 
+\theta &= (\sigma_{\epsilon}^2, \gamma, \zeta_k, \sigma_{b, 1}^2, \rho_b) \sim \text{Priors}.
+\]
+
+The model for site-selection process is 
+\[
+R_{i, j} &\sim \distBern(p_{i, j}) \\
+\mathrm{logit}\, p_{i, 1} &= \alpha_{0, 0} + \alpha_1 t_1^{\star} + \alpha_2(t_1^{\star}) 
++ \beta_1^{\star}(t_1)  \\
+& + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b[b_{0, i} + b_{1, i}(t_1^{\star})] \\
+& + d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2], \\
+\mathrm{for} j \ne 1 \quad \mathrm{logit}\, p_{i, j} &= \alpha_{0, 1} + \alpha_1 t_j^{\star} + 
+\alpha_2 (t_j^{\star})^2 + \beta_1^{\star} t_j \\
+& + \alpha_{ret}r_{i, (j-1)} + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b[b_{0, i} + b_{1, i}(t_1^{\star})] \\
+& + d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2], \label{eq:bs_r}\\
+I_{i, j} &= \ind\left[ \left( \sum_{\ell\ne i}r_{\ell, j-1}\ind (\|s_i - s_{\ell}\| < c) \right) > 0 \right],\\
+[\beta_0^{\star}(s_1), \ldots, \beta_0^{\star}(s_m)]^T &\sim \distNorm(0, \Sigma(\zeta_R)),
+\Sigma(\zeta_R) = \mathrm{Matern}(\zeta_R), \\
+[\beta_1^{\star}(t_1), \ldots, \beta_1^{\star}(t_T)]^T &\sim \mathrm{AR1}(\rho_a, \sigma_a^2), \\
+\theta_R = [\alpha, d_b, d_{\beta}, \rho_a, \sigma_a^2, \zeta_R] & \sim \mathrm{Priors}
+\]
+
+The latent effects appearing in the observation process $Y_{i, j}$ are allowed to exist
+in the linear predictor of the selection process $R_{i, j}$. In particular, the two linear combinations 
+of the latent effects, $b_{0, i} + b_{1, i}(t_1^{\star})$ and 
+$\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2$, from the $Y_{i, j}$ 
+process are copied across. The parameters $d_b$ and $d_{\beta}$ determine the degree to which each shared
+latent effect affects the $R$ process and therefore measure the magnitude and direction of stochastic
+dependence between the two models term-by-term. 
+
+\section{The implementation in INLA / inlabru}
+To implement the preferential sampling model defined by \cref{eq:bs_y} and \cref{eq:bs_r} 
+in INLA, or \textbf{inlabru}, we  are supposed to specify two models. One for the observation 
+process in the Gaussian family and one for the site selection process in the Bernoulli family.
+Also, we want to share two linear combinations of latent factors between the observation
+model and the site selection model:
+\[
+b_{0, i} + b_{1, i}(t_1^{\star}), \quad \text{and}\quad \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2.
+\]
+
+While both INLA and \textbf{inlabru} allow copying factors 
+between models, each factor (`component' in \textbf{inlabru}) must be copied separately and
+therefore introduce one new scale parameter for each copied factor (by setting $fixed = FALSE$). 
+In our model, however, 
+we only  want two scale parameters $d_b$ and $d_\beta$ for these two linear combinations
+of factors:
+\[
+d_b[b_{0, i} + b_{1, i}(t_1^{\star})]  \quad \text{and }\quad d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2],
+\]
+where $d_b$ and $d_{\beta}$ are two scale parameters.
+This is not directly achievable using the $copy$ feature in INLA or \textbf{inlabru},
+and if we use the $copy$ feature to copy each latent factor separately, 
+there will be five (instead of two) new scale parameters introduced at each site and time point. 
+
+\subsection{An alternative approach using auxiliary models}
+To copy the linear combinations of factors in implementing the model for black smoke data, \cite{Watson2019_pref_samp}
+introduced two auxiliary factors and two auxiliary Gaussian models in addition to the 
+original joint model:
+\[
+0 &= - C_b +  [b_{0, i} + b_{1, i}(t_1^{\star})] \label{eq:bs_aux0} \\
+0 &= - C_\beta + [\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2] 
+\label{eq:bs_aux1}
+\]
+where $C_b$ and $C_\beta$ are auxiliary latent factors. These individual factors, $b_{0, i}$, $b_{1, i}(t_1^{\star})$, $\beta_0(s_i)$, 
+$\beta_1(s_i)t_{j-1}^{\star}$, $\beta_2(s_i)(t_{j-1}^{\star})^2$, are copied separately from the 
+observation model \cref{eq:bs_y} to the  two auxiliary models, \cref{eq:bs_aux0} and 
+\cref{eq:bs_aux1}, with the argument $fixed = TRUE$. 
+
+By setting the precision parameter of the two factors $C_b$ and $C_\beta$ to be $\approx 0$ and 
+setting the precision parameter of the two Gaussian auxiliary models to be $\approx \infty$,
+the latent factors $C_b$ and $C_\beta$ duplicate of the two factor combinations:
+\[
+C_b =  b_{0, i} + b_{1, i}(t_1^{\star})\quad
+\text{and} \quad
+C_\beta = \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2.
+\] 
+Given the two auxiliary models, the new model for site-selection process copies $C_b$ 
+and $C_\beta$ from \cref{eq:bs_aux0} and \cref{eq:bs_aux1} instead with the argument $fixed = FALSE$:
+\[
+\mathrm{logit}\, p_{i, 1} &= \alpha_{0, 0} + \alpha_1 t_1^{\star} + \alpha_2(t_1^{\star}) 
++ \beta_1^{\star}(t_1)  \\
+& + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b C_b + d_{\beta}C_\beta, \\
+\mathrm{for} j \ne 1 \quad \mathrm{logit}\, p_{i, j} &= \alpha_{0, 1} + \alpha_1 t_j^{\star} + 
+\alpha_2 (t_j^{\star})^2 + \beta_1^{\star} t_j \\
+& + \alpha_{ret}r_{i, (j-1)} + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b C_b + d_{\beta}C_{\beta}.
+\]
+
+With the auxiliary models and factors, it is possible to copy the linear combination of factors 
+without introducing too many scale parameters. 
+However, this approach requires us to fit four, instead of two models in INLA(or \textbf{inlabru}), 
+and in general, more auxiliary models and factors will be required if more linear combinations 
+of factors need to be shared between the observation process and the site selection process.
+
+\section{Question}
+To simplify the API of our package so that users can use the preferential sampling model to 
+make spatial predictions easily, we want to follow the syntax of the package \textbf{lme4} and 
+ask users to only provide formulas of two mixed effects models. Inside the package, we need to 
+convert the joint model to \textbf{inlabru}(or INLA) models.  Since the approach used by 
+\cite{Watson2019_pref_samp} requires one more additional model for each linear combination 
+of factors to be copied, this increases the complexity of the code. So we wonder if there is more
+straightforward way to copy multiple / linear combination of factors  across models in INLA or 
+\textbf{inlabru}.
+	

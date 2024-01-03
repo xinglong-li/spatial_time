@@ -1,8 +1,13 @@
 \section{Introduction}
+In practice, it is common that the selection of locations of sites where the pollutants 
+are monitored are affected by the density of the pollutants. It is crucial to take the preferential 
+sampling effect into account to accurately model the dispersion of the pollutant and to make 
+predictions of pollutants either spatially or into the future.
+
 \cite{Watson2019_pref_samp} proposed a framework that jointly modeling the distribution of an
 environmental process and a site-selection process, where the environmental process can be spatial,
 temporal, or spatio-temporal. By sharing the random effects between the two process, the joint
-model can detect the preferential sampling effects.
+model can detect the preferential sampling effects in site selection. 
 
 In this work, we develop an R package for this joint model framework for the purpose of making
 spatial predictions. We demonstrate this R package by applying it to the modeling and prediction of
