@@ -1,0 +1,64 @@
+\section{The implementation using inlabru}
+To implement the preferential sampling model defined by \cref{eq:bs_y} and \cref{eq:bs_r} 
+in INLA, or \textbf{inlabru}, we  are supposed to specify two models. One for the observation 
+process in the Gaussian family and one for the site selection process in the Bernoulli family.
+Also, we want to share two linear combinations of latent factors between the observation
+model and the site selection model:
+\[
+b_{0, i} + b_{1, i}(t_1^{\star}), \quad \text{and}\quad \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2.
+\]
+
+While both INLA and \textbf{inlabru} allow copying factors 
+between models, each factor (`component' in \textbf{inlabru}) must be copied separately and
+therefore introduce one new scale parameter for each copied factor (by setting $fixed = FALSE$). 
+In our model, however, 
+we only  want two scale parameters $d_b$ and $d_\beta$ for these two linear combinations
+of factors:
+\[
+d_b[b_{0, i} + b_{1, i}(t_1^{\star})]  \quad \text{and }\quad d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2],
+\]
+where $d_b$ and $d_{\beta}$ are two scale parameters.
+This is not directly achievable using the $copy$ feature in INLA or \textbf{inlabru},
+and if we use the $copy$ feature to copy each latent factor separately, 
+there will be five (instead of two) new scale parameters introduced at each site and time point. 
+
+\subsection{An alternative approach using auxiliary models}
+To copy the linear combinations of factors in implementing the model for black smoke data, \cite{Watson2019_pref_samp}
+introduced two auxiliary factors and two auxiliary Gaussian models in addition to the 
+original joint model:
+\[
+0 &= - C_b +  [b_{0, i} + b_{1, i}(t_1^{\star})] \label{eq:bs_aux0} \\
+0 &= - C_\beta + [\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2] 
+\label{eq:bs_aux1}
+\]
+where $C_b$ and $C_\beta$ are auxiliary latent factors. These individual factors, $b_{0, i}$, $b_{1, i}(t_1^{\star})$, $\beta_0(s_i)$, 
+$\beta_1(s_i)t_{j-1}^{\star}$, $\beta_2(s_i)(t_{j-1}^{\star})^2$, are copied separately from the 
+observation model \cref{eq:bs_y} to the  two auxiliary models, \cref{eq:bs_aux0} and 
+\cref{eq:bs_aux1}, with the argument $fixed = TRUE$. 
+
+By setting the precision parameter of the two factors $C_b$ and $C_\beta$ to be $\approx 0$ and 
+setting the precision parameter of the two Gaussian auxiliary models to be $\approx \infty$,
+the latent factors $C_b$ and $C_\beta$ duplicate of the two factor combinations:
+\[
+C_b =  b_{0, i} + b_{1, i}(t_1^{\star})\quad
+\text{and} \quad
+C_\beta = \beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2.
+\] 
+Given the two auxiliary models, the new model for site-selection process copies $C_b$ 
+and $C_\beta$ from \cref{eq:bs_aux0} and \cref{eq:bs_aux1} instead with the argument $fixed = FALSE$:
+\[
+\mathrm{logit}\, p_{i, 1} &= \alpha_{0, 0} + \alpha_1 t_1^{\star} + \alpha_2(t_1^{\star}) 
++ \beta_1^{\star}(t_1)  \\
+& + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b C_b + d_{\beta}C_\beta, \\
+\mathrm{for} j \ne 1 \quad \mathrm{logit}\, p_{i, j} &= \alpha_{0, 1} + \alpha_1 t_j^{\star} + 
+\alpha_2 (t_j^{\star})^2 + \beta_1^{\star} t_j \\
+& + \alpha_{ret}r_{i, (j-1)} + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b C_b + d_{\beta}C_{\beta}.
+\]
+
+With the auxiliary models and factors, it is possible to copy the linear combination of factors 
+without introducing too many scale parameters. 
+However, this approach requires us to fit four, instead of two models in INLA(or \textbf{inlabru}), 
+and in general, more auxiliary models and factors will be required if more linear combinations 
+of factors need to be shared between the observation process and the site selection process.

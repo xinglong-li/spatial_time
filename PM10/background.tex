@@ -22,10 +22,10 @@ indicator for site $s_i \in \mcP$ at time $t$. We let $t_1, \ldots, t_N$ denote 
 times, and let $r_{i, j} \in \{0, 1\}$ denote the realization of $R_i(t_j)$, for $i \in \{1, \ldots, M\}$,
 $j \in \{1, \ldots, N\}$, where $M = |\mcP|$. The general model framework is
 \[
-Y_{i,j} \given R_{i, j} = 1 &\sim f_{Y}(\mu_{i,j}, \theta_Y), \quad f_Y \sim \text{density},\\
-g(\mu_{i, j}) = \eta_{i, j} &= x_{i, j}^T \gamma + \sum_{k=1}^{q_1}u_{i, j, k}\beta_k(s_i, t_j), \\
+(Y_{i,j} \given R_{i, j} = 1) &\sim f_{Y}(\mu_{i,j}, \theta_Y), \quad f_Y \sim \text{density},\\
+g(\mu_{i, j}) = \eta_{i, j} &= \mathbf{x}_{i, j}^T \gamma + \sum_{k=1}^{q_1}u_{i, j, k}\beta_k(s_i, t_j), \\
 R_{i, j} &\sim \distBern(p_{i, j}), \\
-h(p_{i, j}) &= \nu_{i, j} = v_{i, j}^T \alpha + \sum_{\ell =1}^{q_2}d_{\ell}\sum_{k=1}^{q_1}
+h(p_{i, j}) &= \nu_{i, j} = \mathbf{v}_{i, j}^T \alpha + \sum_{\ell =1}^{q_2}d_{\ell}\sum_{k=1}^{q_1}
 w_{i, j, \ell, k}\beta_k(s_i, \phi_{i, \ell, k}(t_j)) \\
 & + \sum_{m=1}^{q_3} w_{i, j, m}^{\star}\beta_m^{\star}(s_i, t_j), \\
 \beta_k(s_i, t_j) &\sim \text{(possibly shared) latent effect with parameters}\ \theta_k, \\
@@ -33,25 +33,25 @@ w_{i, j, \ell, k}\beta_k(s_i, \phi_{i, \ell, k}(t_j)) \\
 \beta_m^{\star}(s_i, t_j) &\sim \text{site selection only latent effect with parameters}\ \theta_m^\star, \\
 & m \in \{1, \ldots, q_3\}, \\
 \Theta &= (\theta_Y, \alpha, \gamma, d, \theta_1, \ldots, \theta_{q_1}, \theta_1^{\star}, \ldots, \theta_{q_3}^{\star}) \sim \text{Priors}, \\
-x_{i, j} \in \reals^{p_1}, u_{i, j} &\in \reals^{q_1}, v_{i, j} \in \reals^{p_2}, 
-W_{i, j} \in \reals^{q_2\times q_1}, w_{i, j}^{\star T} \in \reals^{q_3} 
+\mathbf{x}_{i, j} \in \reals^{p_1}, \mathbf{u}_{i, j} &\in \reals^{q_1}, \mathbf{v}_{i, j} \in \reals^{p_2}, 
+\mathbf{W}_{i, j} \in \reals^{q_2\times q_1}, \mathbf{w}_{i, j}^{\star T} \in \reals^{q_3} 
 \]
 
 This framework allows a range of different data types of $Y$ to be modeled. In the linear predictor
-$\eta_{i, j}$, we include a linear combination of fixed covariates $x_{i, j}$ with 
+$\eta_{i, j}$, we include a linear combination of fixed covariates $\bfx_{i, j}$ with 
 a linear combination of $q_1$ latent effects $\beta_k(s_i, t_j)$. These $q_1$ random effects
 can include any combinations of spatially-correlated processes (such as Gaussian [Markov] random
 fields), temporally correlated processes (such as autoregressive terms), spatial temporal processes
-and IID random effects. Note that we include the additional fixed covariates $u_{i, j}$ to allow for
+and IID random effects. Note that we include the additional fixed covariates $\bfu_{i, j}$ to allow for
 spatially-varying coefficient models, as well as both random slopes and/or scaled random effects.
 
 As for the site selection process $R_{i, j}$, the linear predictor $\nu_{i, j}$ may also include 
-a linear combination of fixed covariates $v_{i, j}$ with a linear combination of latent effects.
+a linear combination of fixed covariates $\bfv_{i, j}$ with a linear combination of latent effects.
 In particular, the latent effects appearing in the observation process $Y_{i, j}$ are allowed to exist
-in the linear predictor of the selection process $R_{i, j}$. Note that the matrix $W_{i, j}$ is fixed
+in the linear predictor of the selection process $R_{i, j}$. Note that the matrix $\bfW_{i, j}$ is fixed
 beforehand, and allow for $q_2$ linear combinations of the latent effects from the $Y_{i, j}$ 
-process to be copied across. The parameter vector $d$ determines the degree to which each shared
-latent effect affects the $R$ process and therefore measure the magnitude and direction of stochastic
+process to be copied across. The parameter vector $\bfd$ determines the degree to which each shared
+latent effect affects the $\bfR$ process and therefore measure the magnitude and direction of stochastic
 dependence between the two models term-by-term. We allow $q_3$ latent effects, independent 
 from the $Y_{i, j}$ process to exist in the linear predictor.
 
@@ -72,3 +72,62 @@ and for times $t > 1$ to capture the changing directions of preferentiality thro
 This can easily be implemented. Furthermore, we may wish to set $w_{i,j,\ell,m} = 0$ for certain 
 values of the subscripts to see if the effects of covariates and/or the effects of preferential sampling 
 differs between the initial site placement process and the site retention process.
+
+\subsection{A specific model}
+We build one model from the general framework introduced earlier. Let $t_j^{\star}$ denote 
+the $j$th time-scaled observations that lie in the interval $[0, 1]$.
+The model for the observation process is
+\[
+(Y_{i, j} \given R_{i, j}=1) &\sim \distNorm(\mu_{i, j}, \sigma_{\epsilon}^2) \\
+\mu_{i, j} &= \gamma_0 + \gamma_1 t_j^{\star} + \gamma_2(t_j^{\star})^2 
++ b_{0, i} + b_{1, i}t_j^{\star} 
++ \beta_0(s_i) + \beta_1(s_i)t_j^{\star} + \beta_2(s_i)(t_j^{\star})^2 \label{eq:bs_y}\\
+[\beta_k(s_1), \ldots, \beta_k(s_m)]^T &\distiid \distNorm(0, \Sigma(\zeta_k)) \quad 
+\text{for}\ k \in \{0, 1, 2\}, \quad \Sigma(\zeta_k) = \text{Matern}(\zeta_k) \\
+[b_{0, i}, b_{1, i}]  & \distiid \distNorm(0, \Sigma_b), \quad 
+\Sigma_b = \bmat \sigma_{b, 1}^2 & \rho_b  \\ \rho_b & \sigma_{b, 2}^2 \emat, \\ 
+\theta &= (\sigma_{\epsilon}^2, \gamma, \zeta_k, \sigma_{b, 1}^2, \rho_b) \sim \text{Priors}.
+\]
+The model for site-selection process is 
+\[
+R_{i, j} &\sim \distBern(p_{i, j}) \\
+\mathrm{logit}\, p_{i, 1} &= \alpha_{0, 0} + \alpha_1 t_1^{\star} + \alpha_2(t_1^{\star})^2 
++ \beta_1^{\star}(t_1)  \\
+& + \alpha_{rep} I_{i, 2} + \beta_0^{\star}(s_i)  \\
+& + d_b[b_{0, i} + b_{1, i}(t_1^{\star})] \\
+& + d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{1}^{\star} + \beta_2(s_i)(t_{1}^{\star})^2], \\
+\mathrm{for} j \ne 1 \quad \mathrm{logit}\, p_{i, j} &= \alpha_{0, 1} + \alpha_1 t_j^{\star} + 
+\alpha_2 (t_j^{\star})^2 + \beta_1^{\star}(t_j) \\
+& + \alpha_{ret}r_{i, (j-1)} + \alpha_{rep} I_{i, j} + \beta_0^{\star}(s_i)  \\
+& + d_b[b_{0, i} + b_{1, i}(t_{j-1}^{\star})] \\
+& + d_{\beta}[\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2], \label{eq:bs_r}\\
+I_{i, j} &= \ind\left[ \left( \sum_{\ell\ne i}r_{\ell, j-1}\ind (\|s_i - s_{\ell}\| < c) \right) > 0 \right],\\
+[\beta_0^{\star}(s_1), \ldots, \beta_0^{\star}(s_m)]^T &\sim \distNorm(0, \Sigma(\zeta_R)),
+\Sigma(\zeta_R) = \mathrm{Matern}(\zeta_R), \\
+[\beta_1^{\star}(t_1), \ldots, \beta_1^{\star}(t_T)]^T &\sim \mathrm{AR1}(\rho_a, \sigma_a^2), \\
+\theta_R = [\alpha, d_b, d_{\beta}, \rho_a, \sigma_a^2, \zeta_R] & \sim \mathrm{Priors}
+\]
+
+The first component is the global effects of time on the log odds of selection. We also add 
+first-order autoregressive deviation, $\beta_1^{\star}(t_j)$, from this global quadratic change.
+$\alpha_{ret}$ represents the "retention effect" reflecting how the probability a site is selected in a 
+given year changes, conditioned on its inclusion in the previous year. Here, we share all parameters
+across the two processes and allow only a unique intercept to exist between the processes.
+$\alpha_{rep}$ captures the repulsion effect. $I_{i, j}$ denote an indicator variable that determines
+whether or not another site in the network placed within a distance $c$ from site $i$ was
+was operational at the previous time $t_{j-1}$. We choose the hyperparameter $c$ to be 10 km.
+
+This is a joint model with three processes: an observation process, an initial site-placement process
+and a site-retention process. We only allow for a unique intercept to exist across the two processes, 
+sharing the remaining parameters. Only the pseudo-sites contribute a zero to the 
+Bernoulli likelihood for the site-placement across all years. Only the sites that have been removed 
+from the network in year $j$ contribute a zero to the Bernoulli likelihood for the site-retention
+process at year $j$. This ensures that no site in the network was ever reinstalled after its removal. 
+
+The latent effects appearing in the observation process $Y_{i, j}$ are allowed to exist
+in the linear predictor of the selection process $R_{i, j}$. In particular, the two linear combinations 
+of the latent effects, $b_{0, i} + b_{1, i}(t_1^{\star})$ and 
+$\beta_0(s_i) + \beta_1(s_i)t_{j-1}^{\star} + \beta_2(s_i)(t_{j-1}^{\star})^2$, from the $Y_{i, j}$ 
+process are copied across. The parameters $d_b$ and $d_{\beta}$ determine the degree to which each shared
+latent effect affects the $R$ process and therefore measure the magnitude and direction of stochastic
+dependence between the two models term-by-term. 

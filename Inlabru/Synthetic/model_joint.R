@@ -24,11 +24,12 @@ ggplot(BS) + geom_point(aes(x = east, y = north)) + coord_equal()
 
 # Reshape the data with one observation per row (required by INLA)
 BS2 <- melt(BS, id.vars = c(1, 2, 3), variable.name = 'year', value.name = 'bsmoke')
-BS2$year = as.numeric(as.character(factor(BS2$year, labels = 66:96)))
+BS2$year <- as.numeric(as.character(factor(BS2$year, labels = 66:96)))
 
 ggplot(BS2) + geom_histogram(aes(x = bsmoke), bins = 40) 
 # Right skew - take natural log and make it unitless by minus log of mean value
-BS2$bsmoke = log(BS2$bsmoke / mean(colMeans(BS[, 4:34], na.rm = T)))
+offsets = mean(colMeans(BS[, 4:34], na.rm = T))
+BS2$bsmoke <- log(BS2$bsmoke) -log(offsets)
 ggplot(BS2) + geom_histogram(aes(x = bsmoke), bins = 40) 
 
 no_sites = length(unique(BS2$site))
@@ -97,7 +98,7 @@ for (i in sort(unique(BS2$year))[-1]) {
 }
 
 # Create new mesh
-edg_in = 0.3 # The range set to be [0.03, 0.15]
+edg_in = 0.1 # The range set to be [0.03, 0.15]
 edg_out = 2 * edg_in
 mesh <- fm_mesh_2d_inla(loc = cbind(BS2$east, BS2$north),
                         boundary = bord,
@@ -423,23 +424,53 @@ runtime_init <- end_time_aux - start_time_aux
 
 # Predict at grid ==================================================================================
 
-pred_bru <- predict(fit_bru, 
+# Posterior sample at the original sites ----------
+
+pred_bru <- generate(fit_bru_obs, 
                     BS2, 
-                    ~ exp(Intercept + Time_1 + Time_2 + Random_0 + Random_1 + Spatial_0 + Spatial_1 + Spatial_2), 
-                    n.samples = 1000)
+                    ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+                            Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
+                    n.samples = 1000) %>%
+  as.data.frame() %>%
+  `*`(offsets)
 
 pred_bru$year <- BS2$year
-pred_summary <- group_by(pred_bru, year) %>%
-  summarise(annual_mean = mean(mean),
-            annual_sd = mean(sd))
+pred_bru$R <- BS2$R
+
+# Posterior mean of sites -------------------------
+
+annual_quantiles <- function(ann, ...){
+  ann_mean <- colMeans(ann)
+  qs <- quantile(ann_mean, probs=c(0.025, 0.975))
+  data.frame('ann_mean' = mean(ann_mean), 
+             'q_low' = qs[1],
+             'q_up' = qs[2])
+}
+
+pred <- group_by(pred_bru, year) %>%
+  group_modify(annual_quantiles) 
+
+pred_1 <- filter(pred_bru, R == 1) %>%
+  group_by(year) %>% 
+  group_modify(annual_quantiles)
+
+pred_0 <- filter(pred_bru, R == 0) %>%
+  group_by(year) %>%
+  group_modify(annual_quantiles)
+
+# Annual mean of observations ---------------------
 
 bs_summary <- group_by(BS2, year) %>%
-  summarise(annual_mean_exp = mean(exp(bsmoke), na.rm=TRUE))
+  summarise(ann_mean_exp = mean(exp(bsmoke), na.rm=TRUE)*offsets)
 
-ggplot(pred_summary) +
-  geom_line(aes(x = year, y = annual_mean)) +
-  geom_line(aes(x = year, y = bs_summary$annual_mean_exp), col='blue') +
-  geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
+ggplot(pred) +
+  geom_line(aes(x = year, y = bs_summary$ann_mean_exp), col='black') +
+  geom_line(aes(x = year, y = ann_mean), col='blue') +
+  geom_ribbon(aes(x = year, ymin = q_low, ymax = q_up), fill='blue', alpha = 0.5) +
+  geom_line(aes(x = year, y = pred_1$ann_mean), col='green') +
+  geom_ribbon(aes(x = year, ymin = pred_1$q_low, ymax = pred_1$q_up), fill='green', alpha = 0.5) +
+  geom_line(aes(x = year, y = pred_0$ann_mean), col='red') +
+  geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
   ylab("BlackSmoke")
 
