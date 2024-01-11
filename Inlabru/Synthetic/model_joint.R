@@ -323,7 +323,7 @@ like_slc_share_2 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   data = BS2
 )
@@ -399,7 +399,7 @@ like_aux_1 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  formula = zero ~ Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   data = BS2
 )
@@ -407,8 +407,8 @@ like_aux_2 <- like(
 bru_options_reset()
 bru_options_set(bru_max_iter = 20,
                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
-                control.mode = list(theta = c(fit_bru_aux_1$mode$theta, 0),
-                                    restart = TRUE),
+                # control.mode = list(theta = c(fit_bru_aux_1$mode$theta, 0),
+                #                     restart = TRUE),
                 control.family = list(
                   list(),
                   list(),

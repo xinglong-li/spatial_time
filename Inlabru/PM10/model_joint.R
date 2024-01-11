@@ -80,7 +80,7 @@ for (i in sort(unique(PM10s$year))[-1]) {
 }
 
 # Create mesh
-edge_in = 0.2 # 20km
+edge_in = 0.15 # 20km
 edge_out = 2 * edge_in
 mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
                        boundary = CA_border,
@@ -95,7 +95,7 @@ ggplot(PM10s) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") 
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                 alpha = 2, 
                                 prior.range = c(edge_in, 0.01),
-                                prior.sigma = c(sqrt(mean(var_annual$var_pm)), 0.01),
+                                prior.sigma = c(sqrt(mean(var_annual$var_pm)), 0.1),
                                 constr = T)
 
 # Build inlabru model ==============================================================================
@@ -187,7 +187,7 @@ like_slc <- like(
 )
 
 bru_options_reset()
-bru_options_set(bru_max_iter = 5,
+bru_options_set(bru_max_iter = 10,
                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
                 # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
                 # restart = TRUE),
@@ -245,7 +245,7 @@ like_aux_1 <- like(
 )
 
 bru_options_reset()
-bru_options_set(bru_max_iter = 5,
+bru_options_set(bru_max_iter = 10,
                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
                 # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
                 #                     restart = TRUE),
@@ -304,13 +304,13 @@ like_slc_share_2 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   data = PM10s
 )
 
 bru_options_reset()
-bru_options_set(bru_max_iter = 5,
+bru_options_set(bru_max_iter = 10,
                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),#)# h = 1e-5),
                 # control.mode = list(theta = c(fit_bru_obs$mode$theta, fit_bru_slc$mode$theta),
                 #                     restart = TRUE),
@@ -321,7 +321,6 @@ bru_options_set(bru_max_iter = 5,
                 bru_verbose = T)
 
 fit_bru_aux_2 <- bru(comp_aux_2, like_obs, like_slc_share_2, like_aux_2)
-
 
 # Joint preferential sampling model ----------------------------------------------------------------
 
@@ -381,7 +380,7 @@ like_aux_1 <- like(
 )
 
 like_aux_2 <- like(
-  formula = zero ~  Spatial_aux2_0 +  Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
+  formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
   data = PM10s
 )
@@ -405,51 +404,54 @@ runtime_init <- end_time_aux - start_time_aux
 
 # Predict at grid ==================================================================================
 
-pred_bru <- predict(fit_bru, 
-                    PM10s, 
-                    ~ exp(Intercept + Time_1 + Time_2 + Random_0 + Random_1 + Spatial_0 + Spatial_1 + Spatial_2), 
-                    n.samples = 1000)
 
-pred_bru$year <- PM10s$year
-pred_summary <- group_by(pred_bru, year) %>%
-  summarise(annual_mean = mean(mean),
-            annual_sd = mean(sd))
+# Posterior sample at the original sites ----------
 
-pm_summary <- group_by(PM10s, year) %>%
-  summarise(annual_mean_exp = mean(exp(annual_mean), na.rm=TRUE))
+pred_bru <- generate(fit_bru_obs, 
+                     BS2, 
+                     ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+                             Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
+                     n.samples = 1000) %>%
+  as.data.frame() %>%
+  `*`(offsets)
 
-ggplot(pred_summary) +
-  geom_line(aes(x = year, y = annual_mean)) +
-  geom_line(aes(x = year, y = pm_summary$annual_mean_exp), col='blue') +
-  geom_ribbon(aes(x = year, ymin = annual_mean - annual_sd, ymax = annual_mean + annual_sd), fill = "grey70", alpha = 0.5) +
+pred_bru$year <- BS2$year
+pred_bru$R <- BS2$R
+
+# Posterior mean of sites -------------------------
+
+annual_quantiles <- function(ann, ...){
+  ann_mean <- colMeans(ann)
+  qs <- quantile(ann_mean, probs=c(0.025, 0.975))
+  data.frame('ann_mean' = mean(ann_mean), 
+             'q_low' = qs[1],
+             'q_up' = qs[2])
+}
+
+pred <- group_by(pred_bru, year) %>%
+  group_modify(annual_quantiles) 
+
+pred_1 <- filter(pred_bru, R == 1) %>%
+  group_by(year) %>% 
+  group_modify(annual_quantiles)
+
+pred_0 <- filter(pred_bru, R == 0) %>%
+  group_by(year) %>%
+  group_modify(annual_quantiles)
+
+# Annual mean of observations ---------------------
+
+bs_summary <- group_by(BS2, year) %>%
+  summarise(ann_mean_exp = mean(exp(bsmoke), na.rm=TRUE)*offsets)
+
+ggplot(pred) +
+  geom_line(aes(x = year, y = bs_summary$ann_mean_exp), col='black') +
+  geom_line(aes(x = year, y = ann_mean), col='blue') +
+  geom_ribbon(aes(x = year, ymin = q_low, ymax = q_up), fill='blue', alpha = 0.5) +
+  geom_line(aes(x = year, y = pred_1$ann_mean), col='green') +
+  geom_ribbon(aes(x = year, ymin = pred_1$q_low, ymax = pred_1$q_up), fill='green', alpha = 0.5) +
+  geom_line(aes(x = year, y = pred_0$ann_mean), col='red') +
+  geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
-  ylab("PM10")
-
-
-# Plot the marginal pdf of individual effect, fixed or random.
-# To check the names of all effects:
-# names(fit_bru$marginals.fixed) or names(fit_bru$marginals.random)
-
-plot(fit_bru, "Intercept")
-plot(fit_bru, "Time_1")
-plot(fit_bru, "Time_2")
-
-plot(fit_bru, "Random_0")
-
-# What we are interested in is the range and variance of the Matern covariance funcion, 
-# which are functions of the parameters internally used in inlabru.
-# We can look at the posterior distributions of the range parameter and the log of the variance parameters.
-
-spde.range <- spde.posterior(fit_bru, "Spatial_0", what = "range")
-spde.logvar <- spde.posterior(fit_bru, "Spatial_0", what = "log.variance")
-
-range.plot <- plot(spde.range)
-var.plot <- plot(spde.logvar)
-multiplot(range.plot, var.plot)
-
-
-# We can look at the posterior distributions of the Matern correlation and covariance functions as follows:
-plot(spde.posterior(fit_bru, "Spatial_0", what = "matern.correlation"))
-plot(spde.posterior(fit_bru, "Spatial_0", what = "matern.covariance"))
-
+  ylab("BlackSmoke")
 
