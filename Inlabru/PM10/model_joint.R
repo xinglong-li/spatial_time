@@ -408,7 +408,7 @@ runtime_init <- end_time_aux - start_time_aux
 # Posterior sample at the original sites ----------
 
 pred_bru <- generate(fit_bru_obs, 
-                     BS2, 
+                     PM10s, 
                      ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
                              Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
                      n.samples = 1000) %>%
