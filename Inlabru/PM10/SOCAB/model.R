@@ -57,20 +57,21 @@ PM10s_CA_utm <- bind_rows(PM10s_nad83_utm, PM10s_wgs84_utm) %>%
 CA_AirBasins <- st_read(dsn = "./Data/Air_Basins_SCAG_Region", layer = "Air_Basins_SCAG_Region")
 SOCAB_border <- CA_AirBasins[CA_AirBasins$AirBasins == "South Coast Air Basin",] %>%
   st_transform(crs = crs_utm_km) %>%
-  # st_polygonize() %>% 
+  # st_polygonize() %>%
   st_union() %>%
-  as("Spatial")
+  st_geometry()
 
 # Filter the sites in SOCAB ------------------------------------------------------------------------
-ggplot(PM10s_CA_utm) + gg(SOCAB_border) + geom_point(aes(x = E, y = N), color = "blue") + coord_equal()
-site_locs <- data.frame("north" = PM10s_CA_utm$N, "east" = PM10s_CA_utm$E)
-coordinates(site_locs) <- ~ north + east
-proj4string(site_locs) <- proj4string(SOCAB_border)
 
-xy_in <- over(site_locs, SOCAB_border)
+site_locs <- data.frame("N" = PM10s_CA_utm$N, "E" = PM10s_CA_utm$E) %>%
+  st_as_sf(coords = c("E", "N"), crs = crs_utm_km)
 
-stopifnot(length(xy_in) == dim(PM10s_CA_utm)[1])
+xy_in <- st_contains(SOCAB_border, site_locs) %>% as.matrix() %>% c()
+
 PM10s_SOCAB_utm <- PM10s_CA_utm[xy_in, ]
 
+# Convert the border to 'SP' object, which is accepted object for gg function in inlabru
+SOCAB_border <- as(SOCAB_border, "Spatial")
 ggplot(PM10s_SOCAB_utm) + gg(SOCAB_border) + geom_point(aes(x = E, y = N), color = "blue") + coord_equal()
+
 
