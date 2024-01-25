@@ -404,7 +404,6 @@ runtime_init <- end_time_aux - start_time_aux
 
 # Predict at grid ==================================================================================
 
-
 # Posterior sample at the original sites ----------
 
 pred_bru <- generate(fit_bru_obs, 
