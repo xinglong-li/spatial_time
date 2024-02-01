@@ -131,6 +131,7 @@ fit_bru_obs <- bru(comp_obs, like_obs)
 comp_slc <- ~ Intercept_slc(1) + 
   Time_slc_1(time) +
   Time_slc_2(time^2) +
+  
   R_lag_slc(R_lag) +
   Repuls_slc(repulsion_ind) +
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +

@@ -143,6 +143,7 @@ variance_plot
 
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(PM10s[, c("east", "north")])
+PM10s <- select(PM10s, !c("east", "north"))
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
 # Site-selection indicator
@@ -308,10 +309,6 @@ fit_bru_aux <- bru(comp_aux, like_obs, like_slc_share, like_aux_1, like_aux_2)
 end_time_aux <- Sys.time()
 runtime_init <- end_time_aux - start_time_aux
 
-# Joint preferential sampling model on expanded dataset --------------------------------------------
-
-
-
 # Predict at grid ==================================================================================
 
 # Posterior sample at the original sites ----------
@@ -363,4 +360,52 @@ ggplot(pred) +
   geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
   ylab("PM10s")
+
+
+# The model with extended data set =================================================================
+# Once we have created the mesh, we expand the data and treat all mesh nodes as psudo sites
+
+PM10s_flat <- dcast(PM10s0, site_number + north + east ~ year, value.var = "annual_mean")
+nodes_locs <- data.frame("east" = mesh$loc[, 1], "north" = mesh$loc[, 2])
+sites_locs <- data.frame("east" = PM10s_flat$east, "north" = PM10s_flat$north)
+pseudo_sites <- setdiff(nodes_locs, sites_locs) 
+# Number of pseudo sites is a little bit larger than mesh$n - no_sites because there are sites too clos
+# and these sites are not on top of mesh nodes.
+PM10s_flat_pseudo <- data.frame(matrix(data=NA, nrow=dim(pseudo_sites)[1], ncol=dim(PM10s_flat)[2])) %>%
+  `colnames<-`(colnames(PM10s_flat))
+PM10s_flat_expand <- rbind(PM10s_flat, PM10s_flat_pseudo)
+
+
+PM10s = melt(PM10s_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
+PM10s$year <- as.numeric(as.character(factor(PM10s$year, labels = 1985:2022)))
+
+stopifnot(dim(PM10s)[1] == no_sites * no_T)
+
+PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
+PM10s$locs <- coordinates(PM10s[, c("east", "north")])
+PM10s <- select(PM10s, !c("east", "north"))
+PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
+
+# Site-selection indicator
+PM10s$R <- as.numeric(!is.na(PM10s$annual_mean))
+PM10s$R_lag <- c(rep(NA, no_sites), PM10s$R[1:(dim(PM10s)[1]-no_sites)])
+
+# Response variable for the auxiliary model
+PM10s$zero <- 0
+
+# Compute Euclidean distances between all the sites
+dists <- spDists(cbind(PM10s$east[1:no_sites], PM10s$north[1:no_sites]))
+
+r <- 0.1 # The maximum radius of interest to be 1 km
+PM10s$repulsion_ind <- 0
+
+counter <- no_sites + 1
+for (i in sort(unique(PM10s$year))[-1]) {
+  # First extract the data at time i
+  data_i <- PM10s[PM10s$year == i, ]
+  # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it?
+  PM10s$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(dists[, which(data_i$R_lag==1)] < r) > 0
+  counter <- counter + no_sites
+}
+
 
