@@ -70,8 +70,8 @@ xy_in <- st_contains(SOCAB_border, site_locs) %>% as.matrix() %>% c()
 
 PM10s_SOCAB_utm <- PM10s_CA_utm[xy_in, ]
 
-ggplot(PM10s_SOCAB_utm) + gg(as(SOCAB_border, "Spatial")) + 
-  geom_point(aes(x = E, y = N), color = "blue") + coord_equal()
+# ggplot(PM10s_SOCAB_utm) + gg(as(SOCAB_border, "Spatial")) + 
+#   geom_point(aes(x = E, y = N), color = "blue") + coord_equal()
 
 # Aggregate by site --------------------------------------------------------------------------------
 # (Should we aggregate monitors belong to the same sites together?)
@@ -82,8 +82,8 @@ PM10s_SOCAB_summary <- group_by(PM10s_SOCAB_utm, site_number, year) %>%
   mutate(north = mean(north[site_number == site_number]),
          east = mean(east[site_number == site_number]))
 
-ggplot(PM10s_SOCAB_summary) + gg(as(SOCAB_border, "Spatial")) + 
-  geom_point(aes(x = east, y = north), color = "blue") + coord_equal()
+# ggplot(PM10s_SOCAB_summary) + gg(as(SOCAB_border, "Spatial")) + 
+#   geom_point(aes(x = east, y = north), color = "blue") + coord_equal()
 
 # Rescale the coordinates of sites and border, the new unit is 10km --------------------------------
 
@@ -183,9 +183,11 @@ ggplot(PM10s_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "bl
 # Maybe we should consider set the PC prior using data info
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                 alpha = 2, 
-                                prior.range = c(1.5*edge_in, 0.01),
+                                prior.range = c(3*edge_in, 0.01),
                                 prior.sigma = c(1.5*sqrt(mean(var_annual$var_pm)), 0.1),
                                 constr = T)
+
+
 # Build inlabru model ==============================================================================
 
 # Joint independent model --------------------------------------------------------------------------
@@ -307,64 +309,7 @@ bru_options_set(bru_max_iter = 20,
 start_time_aux <- Sys.time()
 fit_bru_aux <- bru(comp_aux, like_obs, like_slc_share, like_aux_1, like_aux_2)
 end_time_aux <- Sys.time()
-runtime_init <- end_time_aux - start_time_aux
-
-# Predict at grid ==================================================================================
-
-# Posterior sample at the original sites ----------
-
-pred_bru <- generate(fit_bru_aux, 
-                     PM10s, 
-                     ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
-                             Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
-                     n.samples = 2000) %>%
-  as.data.frame() %>%
-  `*`(mean_pm_annually)
-
-pred_bru$year <- PM10s$year
-pred_bru$R <- PM10s$R
-
-# Posterior mean of sites -------------------------
-
-annual_quantiles <- function(ann, ...){
-  ann_mean <- colMeans(ann)
-  qs <- quantile(ann_mean, probs=c(0.025, 0.975))
-  data.frame('ann_mean' = mean(ann_mean), 
-             'q_low' = qs[1],
-             'q_up' = qs[2])
-}
-
-pred <- group_by(pred_bru, year) %>%
-  group_modify(annual_quantiles) 
-
-pred_1 <- filter(pred_bru, R == 1) %>%
-  group_by(year) %>% 
-  group_modify(annual_quantiles)
-
-pred_0 <- filter(pred_bru, R == 0) %>%
-  group_by(year) %>%
-  group_modify(annual_quantiles)
-
-# Annual mean of observations ---------------------
-
-bs_summary <- group_by(PM10s, year) %>%
-  summarise(ann_mean_exp = mean(exp(annual_mean), na.rm=TRUE)*mean_pm_annually)
-
-ggplot(pred) +
-  geom_line(aes(x = year, y = bs_summary$ann_mean_exp), col='black') +
-  geom_line(aes(x = year, y = ann_mean), col='blue') +
-  geom_ribbon(aes(x = year, ymin = q_low, ymax = q_up), fill='blue', alpha = 0.5) +
-  geom_line(aes(x = year, y = pred_1$ann_mean), col='green') +
-  geom_ribbon(aes(x = year, ymin = pred_1$q_low, ymax = pred_1$q_up), fill='green', alpha = 0.5) +
-  geom_line(aes(x = year, y = pred_0$ann_mean), col='red') +
-  geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
-  xlab("Year") +
-  ylab("PM10s")
-
-
-
-
-
+runtime_aux <- end_time_aux - start_time_aux
 
 
 # The model with extended data set =================================================================
@@ -427,54 +372,10 @@ for (i in sort(unique(PM10s_expand$year))[-1]) {
   counter <- counter + no_sites_expand
 }
 
-# Build inlabru model ==============================================================================
-
-# Joint independent model --------------------------------------------------------------------------
-
-comp_joint_indep <- ~ Intercept_obs(1) + # Components for observation model
-  Time_obs_1(time) +
-  Time_obs_2(time^2) +
-  Random_obs_0(site_number, model = "iid2d", n = no_sites_expand*2, constr=TRUE) +
-  Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
-  Spatial_obs_0(locs, model = spde_obj) +
-  Spatial_obs_1(locs, weights = time, model = spde_obj) +
-  Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
-  
-  # Components for site selection model
-  Intercept_slc(1) + Time_slc_1(time) +
-  Time_slc_2(time^2) +
-  R_lag_slc(R_lag) +
-  Repuls_slc(repulsion_ind) +
-  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
-  Spatial_slc(locs, model = spde_obj) 
-
-like_obs <- like(
-  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
-    Random_obs_0 + Random_obs_1 + 
-    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
-  family = "gaussian",
-  data = PM10s_expand
-)
-
-like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
-    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
-  family = "binomial",
-  Ntrials = rep(1, times = length(PM10s_expand$R)),
-  data = PM10s_expand
-)
-
-bru_options_reset()
-bru_options_set(bru_max_iter = 10,
-                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
-                bru_verbose = T)
-
-fit_bru_joint_indep <- bru(comp_joint_indep, like_obs, like_slc)
-
 
 # Joint preferential sampling model ----------------------------------------------------------------
 
-comp_aux <- ~ Intercept_obs(1) + # Components for observation model
+comp_aux_expand <- ~ Intercept_obs(1) + # Components for observation model
   Time_obs_1(time) +
   Time_obs_2(time^2) +
   Random_obs_0(site_number, model = "iid2d", n = no_sites_expand*2, constr=TRUE) +
@@ -511,7 +412,7 @@ like_obs <- like(
     Random_obs_0 + Random_obs_1 + 
     Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
   family = "gaussian",
-  data = PM10s
+  data = PM10s_expand
 )
 
 like_slc_share <- like(
@@ -519,20 +420,20 @@ like_slc_share <- like(
     R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + 
     Comp_share1 + Comp_share2,
   family = "binomial",
-  Ntrials = rep(1, times = length(PM10s$R)),
-  data = PM10s
+  Ntrials = rep(1, times = length(PM10s_expand$R)),
+  data = PM10s_expand
 )
 
 like_aux_1 <- like(
   formula = zero ~ Random_aux1_0 + Random_aux1_1 + Comp_aux1,
   family = "gaussian",
-  data = PM10s
+  data = PM10s_expand
 )
 
 like_aux_2 <- like(
   formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
-  data = PM10s
+  data = PM10s_expand
 )
 
 bru_options_reset()
@@ -545,16 +446,18 @@ bru_options_set(bru_max_iter = 20,
                   list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),
                 bru_verbose = T)
 
-start_time_aux <- Sys.time()
-fit_bru_aux <- bru(comp_aux, like_obs, like_slc_share, like_aux_1, like_aux_2)
-end_time_aux <- Sys.time()
-runtime_init <- end_time_aux - start_time_aux
+start_time_aux_expand <- Sys.time()
+fit_bru_aux_expand <- bru(comp_aux_expand, like_obs, like_slc_share, like_aux_1, like_aux_2)
+end_time_aux_expand <- Sys.time()
+runtime_aux_expand <- end_time_aux_expand - start_time_aux_expand
 
 # Predict at grid ==================================================================================
 
+model <- fit_bru_aux
+
 # Posterior sample at the original sites ----------
 
-pred_bru <- generate(fit_bru_aux, 
+pred_bru <- generate(model, 
                      PM10s, 
                      ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
                              Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
@@ -601,7 +504,4 @@ ggplot(pred) +
   geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
   ylab("PM10s")
-
-
-
 
