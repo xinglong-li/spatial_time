@@ -1,0 +1,187 @@
+\section*{Acronyms and Glossary}
+%Compilation of words for the Glossary and Acronyms used in Adrian Jones's Masters report.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%-- Glossary -- 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%How to:  https://www.overleaf.com/learn/latex/glossaries
+%%\usepackage[acronym]{glossaries}
+%\makeglossaries
+%%%Commands:
+%\gls{} to reference a glossary entry
+%\Gls{} to capitalise it
+%\glspl{} pluralises by putting an s on the end.
+
+\newglossaryentry{air_basin}
+{
+    name = {air basin},
+    description = {A region of mostly similar air}
+}
+
+\newglossaryentry{crit_pol}
+{
+    name = {criteria pollutant},
+    description = {One of 6 pollutants found throughout the US that have NAAQS.  They are: Particulates, ground level ozone, carbon monoxide, sulfur dioxide, nitrogen dioxide, and lead.}
+}
+
+\newglossaryentry{NAAQS}
+{
+    name = {National Ambient Air Quality Standard},
+    description = {Regulation for a single pollutant considered "harmful to the public." Will have a primary and secondary standard with fixed statistic, concentration and observation duration. }
+}
+
+\newglossaryentry{PC_prior}
+{
+    name = {penalised complexity prior},
+    description = {Prior that is designed to favour less complicated models in the absence of data supporting additional complexity. \cite{simpson2017penalising} }
+}
+
+\newglossaryentry{PM}
+{
+    name = {particulate matter},
+    description = {}
+}
+
+\newglossaryentry{PS}
+{
+    name = {preferential sampling},
+    description = {}
+}
+
+\newglossaryentry{PC_priors}{
+    name = {Penalised Complexity Prior},
+    description = {Class of priors for Baysian statistics that are designed to shrink the model's complexity to a minimum, restricted by both the data and the researcher's prior knowledge.}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% - Glossary of mathematical 
+%%   symbols
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%
+%General Spatio Temporal Terms
+\newglossaryentry{S}{
+    name = {$S$},
+    description = {Spatial domain of interest.  In this application it is two dimensional, Latitude and Longitude or their Albers transformation}
+}
+\newglossaryentry{T}{
+    name = {$T$},
+    description = {Temporal domain of interest}
+}
+\newglossaryentry{St}{
+    name = {$S_t$},
+    description = {Set of locations at which observations are made at time $t$.  A realisation of the process $P$}
+}
+\newglossaryentry{s,t}{
+    name = {$(s,t)$},
+    description = {A point in the spatio-temporal domain.  $(s,t) \in S X T$}
+}
+\newglossaryentry{Y}{
+    name = {$Y$},
+    description = {The ``true" Gaussian spatio-temporal process of interest with mean $\mu(s,t) = E[Y(s,t)]$ and covariance $\gamma(s,s') = cov{Y(s), Y(s')}$.  The covariance between two locations with $t \neq t'$ is assumed to be 0}
+}
+\newglossaryentry{mu}{
+    name = {$\mu_{s,t}$},
+    description = {The mean of the Gaussian spatio-tempoeral process $Y$.}
+}
+\newglossaryentry{gamma}{
+    name = {$\gamma$},
+    description = {The covariance function of $Y$}
+}
+\newglossaryentry{Z}{
+    name = {$Z_{s,t}$},
+    description = {Set of noisy observations taken of spatio-temporal process $Y$ at location $s$ and time $t$}
+}
+\newglossaryentry{X}{
+    name = {$X_{s,t}$},
+    description = {Set of covariates that can help predict either or both of $\mu$ and $S_t$}
+}
+
+\newglossaryentry{u}{
+    name = {$u$},
+    description = {The scalar distance between two points $u = ||s - s'||$.}
+}
+\newglossaryentry{tau}{
+    name = {$\tau$},
+    description = {The precision of a process, the inverse of its standard deviation $\sigma$.}
+}
+\newglossaryentry{range}{
+    name = {$r$},
+    description = {A distance at which the covariance between two sites becomes relatively unimportant compared to the overall variance.}
+}
+
+\newglossaryentry{sigma}{
+    name = {$\sigma$},
+    description = {The overall variance of the spatial field.}
+}
+%%%%
+%Matern Specific Terms
+\newglossaryentry{phi}{
+    name = {$\phi$},
+    description = {The scaling parameter of the Mat\'{e}rn function.}
+}
+\newglossaryentry{kappa}{
+    name = {$\kappa$},
+    description = {The Order of the Mat\'{e}rn function.}
+}
+
+%%%%
+%Point Process Terms
+\newglossaryentry{P}{
+    name = {$P$},
+    description = {Point process that describes where the point locations $S_t$ are}
+}
+
+%%%%%
+%Preferential Sampling
+\newglossaryentry{k}{
+    name = {$k$},
+    description = {In preferential sampling, the number sites included when taking the mean before correlating mean with distance between means}
+}
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%-- Acronyms -- 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% User Manual:
+%https://ctan.math.ca/tex-archive/macros/latex/contrib/acronym/acronym.pdf
+%\acro{〈acronym〉}[〈short name〉]{〈full name〉}
+\begin{acronym}
+    \acro{ACF}[ACF]{autocorrelation function}
+    \acro{ANOVA}[ANOVA]{Analysis of Variance}
+    \acro{AR}{Auto Regressive}
+    \acro{AQMD}[AQMD]{Air Quality Management District}
+    \acro{AQMP}[AQMP]{Air Quality Management Plan}
+    \acro{CAA}[CAA]{Clean Air Act}
+  %  \acro{CAAQS}[CAAQS]{California Ambient Air Quality Standards}
+    \acro{CFR}[CFR]{Code of Federal Regulations}
+    \acro{EPA}[EPA]{Environmental Protection Agency}
+    \acro{FRM}[FRM]{Federal Reference Method}
+    \acro{FEM}[FEM]{Federal Equivalent Method}
+    \acro{GRF}[GRF]{Gaussian Random Field}
+    \acro{IID}{Independent and Identically Distributed}
+    \acro{INLA}[INLA]{Integrated Nested Laplace Approximation}
+ %   \acro{MA}{Moving Average}
+    \acro{MCMC}{Markov Chain Monte Carlo}
+    \acro{MSA}{Metropolitan Statistical Area}
+    \acro{NAAQS}[NAAQS]{National Ambient Air Quality Standards}
+    \acro{PACF}[PACF]{Partial Autocorrelation Function}
+    \acro{PC}{penalised complexity}
+    \acro{PM10}[$PM_{10}$]{particulate matter with a mean diameter $<10 \mu m$}
+    \acro{PM25}[$PM_{2.5}$]{particulate matter with a mean diameter $<2.5 \mu m$}
+    \acro{POC}[POC]{Parameter Occurrence Code}
+    \acro{PS}{preferential sampling}
+    \acro{RW}{random walk}
+    \acro{SOCAB}[SOCAB]{South Coast Air Basin}
+    \acro{SCAQMD}[SCAQMD]{South Coast Air Quality Management District}
+    \acro{SPDE}[SPDE]{Stochastic Partial Differential Equation}
+    \acro{USGS}{United States Geological Survey}  
+\end{acronym}
+
+
+
+

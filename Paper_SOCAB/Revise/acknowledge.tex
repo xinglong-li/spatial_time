@@ -1,0 +1,21 @@
+\section{Acknowledgements}\label{sec:acknowledgements}
+Joe Watson's contribution to 
+the manuscript was made while he was a 
+Ph.D. student at the University of 
+British Columbia. 
+
+
+\subsection{Workflow}
+\label{subsec:workflow}
+We now summarize the flow of the work we learned was necessary to reach the findings reported in this report. We hope that this blueprint might be of value in future work aimed at the same objective but in a different geographical domain.  Of note is an R package developed partway through this work that uses the EPA API called \texttt{raqdm}.  This package makes data acquisition for future work more streamlined.
+
+\begin{itemize}
+	\item Obtain \ac{EPA} data, e.g. through the R package \texttt{raqdm}.
+	\item Obtain a spatial shape file for the area of interest, e.g. from an online GIS service.
+	\item Match the projection of the spatial shape file to the coordinate system of the data and then filter the data for the pollutant of interest, exclusion criteria, and area of interest.
+	\item Perform preliminary data exploration for spatial and temporal trends, presence of anisotropy, and utility of metadata for modelling. 
+	\item Create a mesh, using the area of interest as a boundary, and preliminary range as edge lengths.
+	\item Model the data with splines for spatial and temporal trends, Mat\'{e}tern function for spatial covariance and probably an AR(1) for temporal covariance.  
+	\item After validating the model, use it to predict a surface.
+	\item Run a preferential sampling test using \texttt{PStestR} and the predicted surface.
+\end{itemize}
