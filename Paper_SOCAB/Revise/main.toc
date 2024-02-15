@@ -1,0 +1,38 @@
+\contentsline {section}{\numberline {1}Introduction}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Motivation for the Paper}{4}{subsection.1.1}%
+\contentsline {section}{\numberline {2}Air Pollution}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Air Pollution Monitoring: a History}{5}{subsection.2.1}%
+\contentsline {section}{\numberline {3}Monitoring Air Pollution fields}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Government Administration}{7}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The LA Basin}{10}{subsection.3.2}%
+\contentsline {section}{\numberline {4}Theoretical Concepts}{13}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Map Projection}{13}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Conventional Geostatistics}{13}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}INLA}{15}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Modelling PM10 Field}{16}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Preferential Sampling}{19}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Detecting Preferential Sampling}{19}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}Data Exploration}{21}{subsection.4.7}%
+\contentsline {subsection}{\numberline {4.8}Data Choice}{22}{subsection.4.8}%
+\contentsline {subsection}{\numberline {4.9}Data Structure}{23}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Data Description}{26}{subsection.4.10}%
+\contentsline {subsection}{\numberline {4.11}Exploratory Data Analysis}{31}{subsection.4.11}%
+\contentsline {subsubsection}{\numberline {4.11.1}Metadata}{35}{subsubsection.4.11.1}%
+\contentsline {subsection}{\numberline {4.12}Traditional Spatial Modeling}{36}{subsection.4.12}%
+\contentsline {section}{\numberline {5}Modeling with INLA}{37}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Mesh Construction}{37}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Mat\'{e}rn Parameters}{37}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Range}{37}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}Random Walk}{39}{subsubsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.3}Choice of Covariance Structure}{39}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Prediction and Validation}{40}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Preferential Sampling}{41}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Governmental Acknowledgement of Preferential Sampling}{41}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Four Site Categories}{42}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}\texttt {PStestR}: A Preferential Sampling Package}{42}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Results of Test}{44}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Conclusions}{45}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Presence of Preferential Sampling}{45}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Complications Not Considered}{45}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Acknowledgements}{46}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Workflow}{46}{subsection.8.1}%
