@@ -1,0 +1,28 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Preferential Sampling Model Using inlabru
+
+In this document, we show how to detect preferential sampling effect via the model proposed in the 
+work [A general theory for preferential sampling in environmental networks](https://projecteuclid.org/journals/annals-of-applied-statistics/volume-13/issue-4/A-general-theory-for-preferential-sampling-in-environmental-networks/10.1214/19-AOAS1288.full). We show how the model using the R package [inlabru](https://inlabru-org.github.io/inlabru/).
+
+## Data Preprocessing
+
+
+## INLA and inlabru
+
+
+## Map data process
+
+
+## Share Multiple factors across models
+
+
+## Model Fitting
+
+
+## Prediction
+

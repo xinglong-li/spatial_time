@@ -1,9 +1,37 @@
-\section{Air Pollution}\label{sec:introdairpollution}
+\section{Air Pollution and Monitoring}\label{sec:introdairpollution}
 Air pollutants are particulates or gases in the air that harm human health or the economy and are present in concentrations that are unusual compared to background levels.  They can be created as a direct result of human actions (e.g. coarse particulates from construction or wood burning), as a secondary result created by chemical or physical processes in the atmosphere (e.g. ozone or nitrous oxides), or as a result of a natural process (e.g. forest fires or dust storms).  The \ac{EPA} has defined six \glspl{crit_pol} to be monitored that provide a good overview of air quality.  One of these is \ac{PM10}, the focus of this report,  with criteria set out in the US EPA NAAQS table.
 %\citep{EPA:NAAQS_table})
 
-\subsection{Air Pollution Monitoring: a History}
-\label{sec:apmonitoring}
+\subsection{PM10 Pollution}\label{sec:pm10}
+Because the \ac{EPA} warehouses data on all the monitored pollutants, there is a choice of hundreds of pollutants, several of which could be reasonably chosen for analysis.  \ac{PM25} is currently considered more relevant for human health.  Ozone is a primary concern in LA because it is out of compliance.   Our study focussed on \ac{PM10} as follow-through on black smoke work in England by \cite{zidek2010monitoring}.  As well, \ac{PM10} has a longer history of monitoring in the \ac{SOCAB} than does \ac{PM25}.
+
+\subsubsection{What is PM10?}
+\label{subsubsec:pm10nature}
+\ac{PM10} are particulates with a diameter less than 10 $\mu m$ in diameter.  It is reported as a mass of solids per volume of air.  The coarser ($> 2.5 \mu m$ diameter) particles are generally a product of physical wear and tear, while the finer ($< 2.5 \mu m$ diameter) particles are usually aggregates from chemical reactions producing nitrogen and sulphur oxides
+%\citep{EPA:PM_basics}
+.
+
+\subsubsection{Effects of PM10}
+\label{subsubsec:pm10effects}
+These particulates have various deleterious effects on human health and infrastructure.  Health effects include both short and long-term concerns.  Short-term, high concentrations of \ac{PM10} can result in acute respiratory problems.  Long-term exposure to lower pollution levels can result in a chronic reduction in functionality of the lungs and cardiovascular system %\citep{EPA:PM_impact}
+.  Economically \ac{PM10} damages property, crops, and reduces visibility
+%\citep{EPA:PM_impact}
+.
+
+\subsubsection{Measurement of PM10}
+\label{subsubsec:pm10measurement}
+Measuring a field that is continuous in time and space can be challenging.  Typically, discrete measurements are taken, and a model interpolates these to estimate a field.  As a result, these measurements are interpreted as averaging over both a spatial and temporal range.
+
+Spatial averaging at each site represents a mass of upwind air, its volume depending upon the geography of each site and the pollutant being monitored.  This is acknowledged in the spatial scale provided in the reports.   
+
+Temporal averaging of the observations is a property of the measurement technique.  The US's gold standard for \ac{PM10}, the \ac{FRM}, is to pull air through filters and weigh the accumulated particles after 24 hours.  This gives an average particulate presence in the air over 24 hours.  The frequency at which these 24-hour samples are taken depends upon the pollutant levels, with levels closer to the standards requiring more frequent measurements (see table \ref{tab:EPA_monitoring_freq}) 
+\citep{CASCAQMD:2015}.
+
+Other measurement techniques are called \ac{FEM}.  Laser back-scatter measurements provide instantaneous readings of particulate size and concentration, generally taken every few minutes.  These are useful for delivering time-sensitive warnings.  In the yearly reports, these \ac {FEM} are averaged over 24hrs to be temporally equivalent to the \ac{FRM} instrumentation.
+
+Individual sites often have multiple instruments monitoring the same pollutant. For example, there could be a continuous \ac{FEM} monitor for forecasting as well as air quality advisories and one \ac{FRM} monitor to fulfill statutory requirements.  Other reasons to have multiple monitors include research or sensor calibration. 
+
+\subsection{Air Pollution Monitoring}\label{sec:apmonitoring}
 Air pollution has been monitored by national government agencies since the 1950s.  The most common motivation is the regulation of polluting industries and the preservation of population health, but other concerns include damage to buildings and infrastructure, reduced crop yields, and reduced air visibility.  
 
 In the United Kingdom, the 1956 Clean Air Act was passed in response to high concentrations of Black Smoke (mostly particulates from coal burning) that, in 1952, was associated with 4000 excess deaths \cite{shaddick2014case}.
@@ -14,63 +42,14 @@ In the USA, the \ac{CAA} of 1963 created a regulatory system requiring states to
 The Los Angeles basin in particular has a long history of poor air quality.  Efforts to regulate and monitor air quality started in 1947 with the founding of the Los Angeles County Air Pollution Control District in response to widespread smog in 1943 
 %\citep{CARB:History}
 .
-
-
-
-\section{Monitoring Air Pollution fields} \label{sec:monitoring}
-We now describe our study in more detail. It set out to detect the bias, described above, that might be present in the South California Air Basin monitoring region after several decades of data monitoring.  Southern California has a long history of air pollution dating to 1945 \citep{CASCAQMD:2015}.
-
-Models that describe spatial fields generally assume a random placement of monitoring sites or an independence of the latent field underlying the pollution field.  However, the placement of monitoring sites is often not random. They are chosen to fulfill a range of constraints and even if the initial selection is well-designed, sites might be chosen for termination because they are consistently in compliance.  This selection bias, referred to as \ac{PS}, can result in models that don't reflect the pollution field experienced by the population. 
-
-Concern about \ac{PS} has a decade's long history. \citet{isaaks1988spatial} discuss how clustered data make variograms poor at estimating covariance parameters. \cite{diggle:07} define \ac{PS} in their book as the stochastic dependence of site locations upon the property being measured. \cite{shaddick2012preferential} discovered  \ac{PS} in the United Kingdom's black smoke monitoring network. Numerous other papers have examined \ac{PS} in different cases, showing how the \ac{PS} results in models incorrectly attributing the magnitude of pollution with impact on health or other model parameters.  An extensive list of references can be found in \citep{Zidek:2012}.  
-
-The data gathered in the USA is freely available to the public and so gets put to many different uses.  Government agencies use this data to make real-time air quality warnings, to monitor general compliance of regions to meet predefined standards and to monitor point sources.  Healthcare specialists use the data from the monitoring in correlational studies to predict the health impacts of pollutant levels on the general population and subsets of interest.  \cite{wong2004comparison} brought up various concerns about using different interpolation techniques with \ac{EPA} data for epidemiological studies.  This combination of circumstances led us to be curious about whether the monitoring networks of the US exhibit \ac{PS}.
-
-
-%\subsection{PM10 Pollution}
-subsection{PM10 Pollution}
-\label{sec:pm10}
-Because the \ac{EPA} warehouses data on all the monitored pollutants, there is a choice of hundreds of pollutants, several of which could be reasonably chosen for analysis.  \ac{PM25} is currently considered more relevant for human health.  Ozone is a primary concern in LA because it is out of compliance.   Our study focussed on \ac{PM10} as follow-through on black smoke work in England by \cite{zidek2010monitoring}.  As well, \ac{PM10} has a longer history of monitoring in the \ac{SOCAB} than does \ac{PM25}.
-
-\subsubsection*{What is PM10?}
-\label{subsubsec:pm10nature}
-\ac{PM10} are particulates with a diameter less than 10 $\mu m$ in diameter.  It is reported as a mass of solids per volume of air.  The coarser ($> 2.5 \mu m$ diameter) particles are generally a product of physical wear and tear, while the finer ($< 2.5 \mu m$ diameter) particles are usually aggregates from chemical reactions producing nitrogen and sulphur oxides
-%\citep{EPA:PM_basics}
-.
-
-\subsubsection*{Effects of PM10}
-\label{subsubsec:pm10effects}
-These particulates have various deleterious effects on human health and infrastructure.  Health effects include both short and long-term concerns.  Short-term, high concentrations of \ac{PM10} can result in acute respiratory problems.  Long-term exposure to lower pollution levels can result in a chronic reduction in functionality of the lungs and cardiovascular system %\citep{EPA:PM_impact}
-.  Economically \ac{PM10} damages property, crops, and reduces visibility
-%\citep{EPA:PM_impact}
-.
-
-\subsubsection*{Measurement of PM10}
-\label{subsubsec:pm10measurement}
-Measuring a field that is continuous in time and space can be challenging.  Typically, discrete measurements are taken, and a model interpolates these to estimate a field.  As a result, these measurements are interpreted as averaging over both a spatial and temporal range.
-
-Spatial averaging at each site represents a mass of upwind air, its volume depending upon the geography of each site and the pollutant being monitored.  This is acknowledged in the spatial scale provided in the reports.   
-
-In Appendix D Section 4.6 (b) of CFR 40-58 %\ac{PM10} sensors are said to monitor air on a scale of $100 m$ to $ 4~km $ depending upon the homogeneity of the air and surface \citep{CFR:Title40-58}.
-
-
-Temporal averaging of the observations is a property of the measurement technique.  The US's gold standard for \ac{PM10}, the \ac{FRM}, is to pull air through filters and weigh the accumulated particles after 24 hours.  This gives an average particulate presence in the air over 24 hours.  The frequency at which these 24-hour samples are taken depends upon the pollutant levels, with levels closer to the standards requiring more frequent measurements (see table \ref{tab:EPA_monitoring_freq}) 
-\citep{CASCAQMD:2015}.
-
-Other measurement techniques are called \ac{FEM}.  Laser back-scatter measurements provide instantaneous readings of particulate size and concentration, generally taken every few minutes.  These are useful for delivering time-sensitive warnings.  In the yearly reports, these \ac {FEM} are averaged over 24hrs to be temporally equivalent to the \ac{FRM} instrumentation.
-
-Individual sites often have multiple instruments monitoring the same pollutant. For example, there could be a continuous \ac{FEM} monitor for forecasting as well as air quality advisories and one \ac{FRM} monitor to fulfill statutory requirements.  Other reasons to have multiple monitors include research or sensor calibration. 
-
-
-
-\subsection{Government Administration}
+\subsubsection{Government Administration}
 \label{subsec:govtadmin}
 The process of interest-choice of site location and the possible subsequent preferential sampling is a product of governmental decisions to set and meet regulatory standards.  For the United States, these regulations are described in detail on the EPA website
 %\ac{EPA} website 
 but outlined here.
 %\citep{EPA:PM10_NAAQS}.
 
-\subsubsection*{Regulatory Framework in the US}
+\subsubsection{Regulatory Framework in the US}
 \label{subsubsec:regulation}
 In the United States, air quality monitoring and enforcement requires cooperation and coordination between governmental agencies at the regional, state and federal levels.
 
@@ -83,7 +62,7 @@ At the Federal level, the \ac{EPA} defines standards for air quality levels, mon
 
 The states divide themselves into regional districts responsible for choosing site placement and report preparation.  States can set their regulations, but must still meet the \ac{EPA}'s regulations. 
 
-\subsubsection*{Air Quality Standards}\label{subsubsec:aqs}
+\subsubsection{Air Quality Standards}\label{subsubsec:aqs}
 The \ac{CAA} established six important pollutants, called \gls{crit_pol}, 
 including particulate matter, and gave the \ac{EPA} power to define \acp{NAAQS} for each.
 
@@ -179,7 +158,7 @@ but there are only two purposes relevant for sites monitoring \ac{PM10} in the \
 \end{itemize}
 
 
-\subsubsection*{Reporting Requirements}
+\subsubsection{Reporting Requirements}
 \label{subsubsec:ReportingRequirements}
 Reporting air quality data is mandated by the \ac{EPA}.  Each year, regional monitoring districts compile the past year's data and submit it to the \ac{EPA} for entry into a publicly accessible database.  After data cleaning, the \ac{EPA} makes the reported data available as recompiled data files on its website at \url{https://aqs.epa.gov/aqsweb/airdata/download_files.html}.  
 
