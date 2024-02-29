@@ -40,12 +40,18 @@ We scale the Eastings and Northings coordinates and the unit is 100 km. We scale
 lie in the interval $[0, 1]$ to stabilize the temporal polynomials used in later analysis.
 
 \subsection{Data Preprocessing}
+In order to make sure the the assumptions on the distributions of data is reasonable, some data
+cleaning and preprocessing is required before we fit the PS model. Due to the right skewness of the
+PM10 observations, we applied the natural logarithmic transformation to the values to make the 
+observations Gaussian distributed. 
 
 \subsection{Map projection and Mesh Grid}
 The same mesh is used in both implementations. 
+
 
 \section{Model Fitting}
 We fit the same model on two populations using R-inlabru package. Inlabru is built upon the R-INLA 
 package with simplified syntax. The R-INLA package apply the SPDE approach to add the
 This enables the rapid computation of approximate Bayesian posterior distribution of the model 
-parameters and random effects.
+parameters and random effects. The R-INLA packages approximates the Gaussian Markov random field by
+solving an SPDE on a triangulation grid.
