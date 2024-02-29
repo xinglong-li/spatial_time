@@ -10,7 +10,8 @@ In this document, we show how to detect preferential sampling effect via the mod
 work [A general theory for preferential sampling in environmental networks](https://projecteuclid.org/journals/annals-of-applied-statistics/volume-13/issue-4/A-general-theory-for-preferential-sampling-in-environmental-networks/10.1214/19-AOAS1288.full). We show how the model using the R package [inlabru](https://inlabru-org.github.io/inlabru/).
 
 ## Data Preprocessing
-
+### Site location data process
+### PM10 data process
 
 ## INLA and inlabru
 

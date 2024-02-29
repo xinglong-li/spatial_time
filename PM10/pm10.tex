@@ -1,5 +1,36 @@
-\section{PM10 in California}
+\section{The Preferential Sampling Model}
+The population of sites considered for selection should also be selected carefully.
+Different choices of the population leads to different conclusions about the PS effect. 
+In one case the population is all sites that have been monitored at some times $t \in T$, and
+the estimate of the mean value of the PM10 can be interpreted as the network average.
+By using this population, the model help us detect the effect of PS on estimates of the density of 
+PM10s across all sites ever observed. 
+In the other case, we include all vertices of the mesh grid that are inside the border in the 
+population and we treat those unobserved vertices as pseudo site locations. These pseudo sites are
+placed at a density of approximately 3 km throughout SOCAB region, and in this case, the estimate 
+of the mean value of the PM10 in this case can be interpreted as the PM10 density across the SOCAB
+region. Since we are uniformly cover the 
+SOCAB region, this population help us detect if the observed sites are preferentially selected and 
+the effect of PS on estimating the mean of PM10 over the entire SOCAB region.
 
+A Bayesian model is 
+introduced for the joint distribution of the response vector $(Y_{st}, R_{st})$, where $R_{st}$ is
+a binary response for the site selection process. By sharing random effects across the two processes
+the stochastic dependence between the observation and the site selection can be detected and adjust 
+the predictions. In particular, the site selection process is allowed to use information from both
+spatially varying Gaussian processes and spatially-uncorrelated site-specific effects to determine
+the site selection probabilities each year.
+We fit the same preferential sampling model for the two populations.
+
+
+\section{PM10 in California}
+The annual concentration of PM10s from 1965 can be download from **. We download the site locations
+and the observed PM10 concentrations from the website. The site locations of these sites can be 
+seen from Fig. 
+
+The decline trend in concentrations of PM10s from 1965 to can be seen from Fig. The sites are added 
+to the network and dropped. It can be seen from the plot that sites remained in the network until 
+the end are those with higher measurements.
 \subsection{The PM10 Data}
 A few data cleaning steps were carried out before fitting the models. Due to the right skewness of 
 the PM10 observation distribution, we applied the natural logarithmic transformation to the values
@@ -10,3 +41,11 @@ lie in the interval $[0, 1]$ to stabilize the temporal polynomials used in later
 
 \subsection{Data Preprocessing}
 
+\subsection{Map projection and Mesh Grid}
+The same mesh is used in both implementations. 
+
+\section{Model Fitting}
+We fit the same model on two populations using R-inlabru package. Inlabru is built upon the R-INLA 
+package with simplified syntax. The R-INLA package apply the SPDE approach to add the
+This enables the rapid computation of approximate Bayesian posterior distribution of the model 
+parameters and random effects.
