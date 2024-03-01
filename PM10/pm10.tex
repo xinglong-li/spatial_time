@@ -43,7 +43,10 @@ lie in the interval $[0, 1]$ to stabilize the temporal polynomials used in later
 In order to make sure the the assumptions on the distributions of data is reasonable, some data
 cleaning and preprocessing is required before we fit the PS model. Due to the right skewness of the
 PM10 observations, we applied the natural logarithmic transformation to the values to make the 
-observations Gaussian distributed. 
+observations Gaussian distributed. To make the fitted model interpretable, we then subtract the 
+logarithmic transformation of the mean value so that the data is dimensionless. To increase the 
+numerical stability in model fitting, we also rescaled the Eastings and Northings coordinates by
+about the standard deviations of the coordinates.
 
 \subsection{Map projection and Mesh Grid}
 The same mesh is used in both implementations. 
