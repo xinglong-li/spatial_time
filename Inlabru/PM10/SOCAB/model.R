@@ -62,6 +62,8 @@ SOCAB_border <- CA_AirBasins[CA_AirBasins$AirBasins == "South Coast Air Basin",]
   st_union() %>%
   st_geometry()
 
+saveRDS(SOCAB_border, "./Inlabru/PM10/SOCAB/SOCAB_border.rds")
+
 # Filter the sites in SOCAB ------------------------------------------------------------------------
 site_locs <- data.frame("N" = PM10s_CA_utm$N, "E" = PM10s_CA_utm$E) %>%
   st_as_sf(coords = c("E", "N"), crs = crs_utm_km)
