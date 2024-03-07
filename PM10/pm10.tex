@@ -58,6 +58,19 @@ cleaning and preprocessing is required before we fit the PS model. Due to the ri
 PM10 observations, we applied the natural logarithmic transformation to the values to make the 
 observations Gaussian distributed. To make the fitted model interpretable, we then subtract the 
 logarithmic transformation of the mean value so that the data is dimensionless. 
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width = 0.8\textwidth]{socab_plots/logPM10_traces.png}
+	\caption{The sites in the SOCAB region.}
+	\label{fig:logpm10_traces}
+\end{figure}
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width = 0.8\textwidth]{socab_plots/logPM10_var.png}
+	\caption{The sites in the SOCAB region.}
+	\label{fig:logpm10_var}
+\end{figure}
 
 \subsection{Map projection and Mesh Grid}
 The site locations in the data set are recorded as latitude and longitude under different coordinate
@@ -66,6 +79,20 @@ site locations to the UTM (Easting/Northing) coordinates with the measurement un
 
 The border map of SOCAB region is also projected to the same CRS as the site locations, and we keep
 the sites only in the SOCAB region. 
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width = 0.8\textwidth]{socab_plots/SOCAB_sites.png}
+	\caption{The sites in the SOCAB region.}
+	\label{fig:socab_sites}
+\end{figure}
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width = 0.8\textwidth]{socab_plots/SOCAB_meshgrid.png}
+	\caption{The meshgrid in the SOCAB region.}
+	\label{fig:socab_meshgrid}
+\end{figure}
 
 To increase the numerical stability in model fitting, we rescale the Eastings and Northings 
 coordinates of sites and the SOCAB border by 10, and each unit distance represent 10 km.
@@ -76,8 +103,33 @@ The same mesh is used in both implementations.
 
 
 \section{Model Fitting}
+In spatial statistics it is common to formulate mixed-eﬀects regression models in which the linear predictor is made of a trend plus a spatial variation
+The trend usually is composed of ﬁxed eﬀects or some smooth terms on covariates, while the spatial variation is usually modeled using correlated random ffects.
+Spatial random eﬀects often model (residual) small scale variation and this is the reason why these models can be regarded as models with correlated errors.
+
+Lindgren et al. (2011) describe an approximation to continuous spatial models with a Matérn
+covariance that is based on the solution to a stochastic partial diﬀerential equation (SPDE). 
+A Gaussian spatial process with Matérn covariance is a solution to SPDE
+This approximation is computed using a sparse representation that can be eﬀectively implemented using the integrated nested Laplace approximation (INLA, Rue et al., 2009)
+
+INLA focuses on models that can be expressed as latent Gaussian Markov random ﬁelds (GMRF)
+
+INLA can handle models with more than one likelihood. By using a model with more than one likelihood it is possible to build a joint model with dfferent types of outputs and the hyperparameters in the likelihoods will be ﬁtted separately.
+
 We fit the same model on two populations using R-inlabru package. Inlabru is built upon the R-INLA 
 package with simplified syntax. The R-INLA package apply the SPDE approach to add the
 This enables the rapid computation of approximate Bayesian posterior distribution of the model 
 parameters and random effects. The R-INLA packages approximates the Gaussian Markov random field by
 solving an SPDE on a triangulation grid.
+The goal of inlabru is to facilitate spatial modeling using integrated nested Laplace approximation via the R-INLA package.
+
+\begin{lstlisting}[language = R]
+	mesh1 <- inla.mesh.2d(loc = PM10.INLA.data.aea.SOCAB@coords, 
+	boundary = SOCAB_union_sp,
+	offset = c(1,40),
+	max.edge = c(20, 40),
+	min.angle = c(21, 21),max.n=c(48000, 16000), 
+	max.n.strict=c(128000, 128000), 
+	cutoff=5
+	) 
+\end{lstlisting} \label{code:inlaMesh}

@@ -55,14 +55,16 @@ PM10s_CA_utm <- bind_rows(PM10s_nad83_utm, PM10s_wgs84_utm) %>%
   dplyr::select(-c("latitude", "longitude", "datum"))
 
 # Load the border of SOCAB (South Coast Air Basin) -------------------------------------------------
-CA_AirBasins <- st_read(dsn = "./Data/Air_Basins_SCAG_Region", layer = "Air_Basins_SCAG_Region")
-SOCAB_border <- CA_AirBasins[CA_AirBasins$AirBasins == "South Coast Air Basin",] %>%
-  st_transform(crs = crs_utm_km) %>%
-  # st_polygonize() %>%
-  st_union() %>%
-  st_geometry()
+# CA_AirBasins <- st_read(dsn = "./Data/Air_Basins_SCAG_Region", layer = "Air_Basins_SCAG_Region")
+# SOCAB_border <- CA_AirBasins[CA_AirBasins$AirBasins == "South Coast Air Basin",] %>%
+#   st_transform(crs = crs_utm_km) %>%
+#   # st_polygonize() %>%
+#   st_union() %>%
+#   st_geometry()
+# 
+# saveRDS(SOCAB_border, "./Inlabru/PM10/SOCAB/SOCAB_border.rds")
 
-saveRDS(SOCAB_border, "./Inlabru/PM10/SOCAB/SOCAB_border.rds")
+SOCAB_border <- readRDS("./Inlabru/PM10/SOCAB/SOCAB_border.rds")
 
 # Filter the sites in SOCAB ------------------------------------------------------------------------
 site_locs <- data.frame("N" = PM10s_CA_utm$N, "E" = PM10s_CA_utm$E) %>%
@@ -72,8 +74,11 @@ xy_in <- st_contains(SOCAB_border, site_locs) %>% as.matrix() %>% c()
 
 PM10s_SOCAB_utm <- PM10s_CA_utm[xy_in, ]
 
-# ggplot(PM10s_SOCAB_utm) + gg(as(SOCAB_border, "Spatial")) + 
-#   geom_point(aes(x = E, y = N), color = "blue") + coord_equal()
+ggplot(PM10s_SOCAB_utm) + gg(as(SOCAB_border, "Spatial")) +
+  geom_point(aes(x = E, y = N), color = "blue") + 
+  xlab('East / km') +
+  ylab('North / km') +
+  coord_equal()
 
 # Aggregate by site --------------------------------------------------------------------------------
 # (Should we aggregate monitors belong to the same sites together?)
@@ -84,8 +89,11 @@ PM10s_SOCAB_summary <- group_by(PM10s_SOCAB_utm, site_number, year) %>%
   mutate(north = mean(north[site_number == site_number]),
          east = mean(east[site_number == site_number]))
 
-# ggplot(PM10s_SOCAB_summary) + gg(as(SOCAB_border, "Spatial")) + 
-#   geom_point(aes(x = east, y = north), color = "blue") + coord_equal()
+ggplot(PM10s_SOCAB_summary) + gg(as(SOCAB_border, "Spatial")) +
+  geom_point(aes(x = east, y = north), color = "blue") + 
+  xlab('East / km') +
+  ylab('North / km') +
+  coord_equal()
 
 # Rescale the coordinates of sites and border, the new unit is 10km --------------------------------
 
@@ -137,7 +145,7 @@ means_plot
 var_annual <- group_by(PM10s, year) %>% 
   summarise(var_pm = var(annual_mean, na.rm = T))
 variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_pm)) +
-  geom_line() + geom_smooth() + xlab("Year") + ylab("Variance log(PM10)") 
+  geom_line() + geom_smooth() + xlab("Year") + ylab("Variance of log(PM10)") 
 ggtitle('A plot of the variance of the log annual means with fitted smoother')
 variance_plot
 
@@ -180,7 +188,10 @@ mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
                        cutoff = edge_in,
                        min.angle = 21)
 mesh$n
-ggplot(PM10s_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + coord_fixed()
+ggplot(PM10s_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + 
+  xlab("East / 10km") +
+  ylab("North / 10km") +
+  coord_fixed()
 
 # Maybe we should consider set the PC prior using data info
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
@@ -194,45 +205,45 @@ spde_obj <- inla.spde2.pcmatern(mesh = mesh,
 
 # Joint independent model --------------------------------------------------------------------------
 
-comp_joint_indep <- ~ Intercept_obs(1) + # Components for observation model
-  Time_obs_1(time) +
-  Time_obs_2(time^2) +
-  Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
-  Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
-  Spatial_obs_0(locs, model = spde_obj) +
-  Spatial_obs_1(locs, weights = time, model = spde_obj) +
-  Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
-  
-  # Components for site selection model
-  Intercept_slc(1) + Time_slc_1(time) +
-  Time_slc_2(time^2) +
-  R_lag_slc(R_lag) +
-  Repuls_slc(repulsion_ind) +
-  AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
-  Spatial_slc(locs, model = spde_obj) 
-
-like_obs <- like(
-  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
-    Random_obs_0 + Random_obs_1 + 
-    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
-  family = "gaussian",
-  data = PM10s
-)
-
-like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
-    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
-  family = "binomial",
-  Ntrials = rep(1, times = length(PM10s$R)),
-  data = PM10s
-)
-
-bru_options_reset()
-bru_options_set(bru_max_iter = 10,
-                control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
-                bru_verbose = T)
-
-fit_bru_joint_indep <- bru(comp_joint_indep, like_obs, like_slc)
+# comp_joint_indep <- ~ Intercept_obs(1) + # Components for observation model
+#   Time_obs_1(time) +
+#   Time_obs_2(time^2) +
+#   Random_obs_0(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +
+#   Random_obs_1(site_number, weights = time, copy = "Random_obs_0") +
+#   Spatial_obs_0(locs, model = spde_obj) +
+#   Spatial_obs_1(locs, weights = time, model = spde_obj) +
+#   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
+#   
+#   # Components for site selection model
+#   Intercept_slc(1) + Time_slc_1(time) +
+#   Time_slc_2(time^2) +
+#   R_lag_slc(R_lag) +
+#   Repuls_slc(repulsion_ind) +
+#   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
+#   Spatial_slc(locs, model = spde_obj) 
+# 
+# like_obs <- like(
+#   formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+#     Random_obs_0 + Random_obs_1 + 
+#     Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
+#   family = "gaussian",
+#   data = PM10s
+# )
+# 
+# like_slc <- like(
+#   formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
+#     R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
+#   family = "binomial",
+#   Ntrials = rep(1, times = length(PM10s$R)),
+#   data = PM10s
+# )
+# 
+# bru_options_reset()
+# bru_options_set(bru_max_iter = 10,
+#                 control.inla = list(strategy = "gaussian", int.strategy = 'eb'),
+#                 bru_verbose = T)
+# 
+# fit_bru_joint_indep <- bru(comp_joint_indep, like_obs, like_slc)
 
 
 # Joint preferential sampling model ----------------------------------------------------------------
