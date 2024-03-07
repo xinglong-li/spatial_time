@@ -124,12 +124,78 @@ solving an SPDE on a triangulation grid.
 The goal of inlabru is to facilitate spatial modeling using integrated nested Laplace approximation via the R-INLA package.
 
 \begin{lstlisting}[language = R]
-	mesh1 <- inla.mesh.2d(loc = PM10.INLA.data.aea.SOCAB@coords, 
-	boundary = SOCAB_union_sp,
-	offset = c(1,40),
-	max.edge = c(20, 40),
-	min.angle = c(21, 21),max.n=c(48000, 16000), 
-	max.n.strict=c(128000, 128000), 
-	cutoff=5
-	) 
-\end{lstlisting} \label{code:inlaMesh}
+	components <- ~ 
+		# Components for observation model
+		intercept_obs(1) +   
+		time_1_obs(time) +  
+		time_2_obs(time^2) +  
+		random_0_obs(site_number, model = "iid2d", n = no_sites*2, constr=TRUE) +  
+		random_1_obs(site_number, weights = time, copy = "random_obs0") +  
+		spatial_0_obs(locs, model = spde_obj) +  
+		spatial_1_obs(locs, weights = time, model = spde_obj) +  
+		spatial_2_obs(locs, weights = time^2, model = spde_obj) +    
+		# Components for site selection model  
+		intercept_slc(1) + 
+		time_1_slc(time) +  
+		time_2_slc(time^2) +  
+		lag_slc(slc_lag) +  
+		repuls_slc(repulsion_ind) + 
+		ar_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +  
+		spatial_slc(locs, model = spde_obj) +  
+		share_aux1(site_number, copy = "comp_aux1", fixed = FALSE) +   
+		share_aux2(site_number, copy = "comp_aux2", fixed = FALSE) +    
+		# Components for the first auxiliary model  
+		random_0_aux1(site_number, copy = "random_obs0", fixed = TRUE) +  
+		random_1_aux1(site_number, weights = time, copy = "random_obs11", fixed = TRUE) +  
+		comp_aux1(site_number, model = 'iid', 
+							hyper = list(prec = list(initial = -20, fixed=TRUE))) +    
+		# Components for the second auxiliary model  
+		spatial_0_aux2(locs, copy = "spatial_0_obs", fixed = TRUE) +  
+		spatial_1_aux2(locs, weights = time, copy = "spatial_1_obs", fixed = TRUE) +  
+		spatial_2_aux2(locs, weights = time^2, copy = "spatial_2_obs", fixed = TRUE) +  
+		comp_aux2(site_number, model = 'iid', 
+							hyper = list(prec = list(initial = -20, fixed=TRUE)))
+\end{lstlisting} \label{code:inlabru_components}
+
+\begin{lstlisting}[language = R]
+	like_obs <- like(formula = annual_mean ~ intercept_obs + time_1_obs + time_2_obs +     
+																					 random_0_obs + random_1_obs + 
+																					 spatial_0_obs + spatial_1_obs + spatial_2_obs,  
+									 family = "gaussian",  
+									 data = PM10s_SOCAB)
+\end{lstlisting} \label{code:inlabru_lik_obs}
+
+\begin{lstlisting}[language = R]
+	like_slc <- like(formula = slc ~ intercept_slc + time_1_slc + time_2_slc +     
+																	 lag_slc + repuls_slc + ar_slc + spatial_slc +     
+																	 share_aux1 + share_aux2,  
+									 family = "binomial",  
+									 Ntrials = rep(1, times = length(PM10s_SOCAB$slc)),  
+									 data = PM10s_SOCAB)
+\end{lstlisting} \label{code:inlabru_lik_slc}
+
+\begin{lstlisting}[language = R]
+	like_aux1 <- like(formula = zero ~ random_0_aux1 + random_1_aux1 + comp_aux1,  
+										family = "gaussian",  
+										data = PM10s_expand)
+\end{lstlisting} \label{code:inlabru_lik_aux1}
+
+\begin{lstlisting}[language = R]
+	like_aux2 <- like(formula = zero ~ spatial_0_aux2 + spatial_1_aux2 + spatial_2_aux2 + 
+																		 comp_aux2,  
+										family = "gaussian",  
+										data = PM10s_SOCAB)
+\end{lstlisting} \label{code:inlabru_lik_aux2}
+
+\begin{lstlisting}[language = R]
+	bru_options_set(bru_max_iter = 20,                
+									control.inla = list(strategy = "gaussian", int.strategy = 'eb'),                
+									control.family = list(
+											list(), 
+								    	list(), 
+								     	list(hyper = list(prec = list(initial = 20, fixed=TRUE))),                  
+								     	list(hyper = list(prec = list(initial = 20, fixed=TRUE)))),                
+									bru_verbose = T)
+	fit_bru <- bru(components, 
+								 like_obs, like_slc, like_aux1, like_aux2)
+\end{lstlisting} \label{code:inlabru_fit}
