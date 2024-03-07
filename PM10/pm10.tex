@@ -24,9 +24,22 @@ We fit the same preferential sampling model for the two populations.
 
 
 \section{PM10 in California}
-The annual concentration of PM10s from 1965 can be download from **. We download the site locations
-and the observed PM10 concentrations from the website. The site locations of these sites can be 
-seen from Fig. 
+The annual concentration of PM10s from 1965 can be download from the website (\url{https://www.epa.gov/outdoor-air-quality-data}) 
+of the U.S. Environmental Protection Agency (EPA). We download the annual records of PM10 in California 
+between 1985 to 2022. The raw data set include locations, year, and some summery statistics of 
+measurements of all sites in California. The complete information of the data set can be found in
+the EPA website (\url{https://aqs.epa.gov/aqsweb/airdata/FileFormats.html#_annual_summary_files}).
+The raw data set downloaded also include records of other air pollutants, but we keep only the PM10
+records.
+
+We keep the annual mean of PM10 measurements to represent the PM10 level at each site.
+Sometimes exceptional events happened and can affect the measurements of air pollutants, 
+but the local agency has no control over. A wildfire is an example of an exceptional event. 
+We use the summary statistics which remove the affects of extreme events.  
+
+The site locations of these sites can be seen from Fig. Note that each measurement site might has 
+multiple monitors planted in close but different locations. We combine the measurement of different
+monitors of each site by taking the arithmetic average of bothe the locations and PM10 measurements.
 
 The decline trend in concentrations of PM10s from 1965 to can be seen from Fig. The sites are added 
 to the network and dropped. It can be seen from the plot that sites remained in the network until 
@@ -44,11 +57,21 @@ In order to make sure the the assumptions on the distributions of data is reason
 cleaning and preprocessing is required before we fit the PS model. Due to the right skewness of the
 PM10 observations, we applied the natural logarithmic transformation to the values to make the 
 observations Gaussian distributed. To make the fitted model interpretable, we then subtract the 
-logarithmic transformation of the mean value so that the data is dimensionless. To increase the 
-numerical stability in model fitting, we also rescaled the Eastings and Northings coordinates by
-about the standard deviations of the coordinates.
+logarithmic transformation of the mean value so that the data is dimensionless. 
 
 \subsection{Map projection and Mesh Grid}
+The site locations in the data set are recorded as latitude and longitude under different coordinate
+reference systems (CRS). In order to better represent the distance between sites, we project all 
+site locations to the UTM (Easting/Northing) coordinates with the measurement unit being kilometer.
+
+The border map of SOCAB region is also projected to the same CRS as the site locations, and we keep
+the sites only in the SOCAB region. 
+
+To increase the numerical stability in model fitting, we rescale the Eastings and Northings 
+coordinates of sites and the SOCAB border by 10, and each unit distance represent 10 km.
+
+We create the mesh grid using the function $mesh_2d_inla$. 
+
 The same mesh is used in both implementations. 
 
 
