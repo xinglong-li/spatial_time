@@ -103,18 +103,18 @@ The same mesh is used in both implementations.
 
 
 \section{Model Fitting}
-In spatial statistics it is common to formulate mixed-eﬀects regression models in which the linear predictor is made of a trend plus a spatial variation
-The trend usually is composed of ﬁxed eﬀects or some smooth terms on covariates, while the spatial variation is usually modeled using correlated random ffects.
-Spatial random eﬀects often model (residual) small scale variation and this is the reason why these models can be regarded as models with correlated errors.
+In spatial statistics it is common to formulate mixed-effects regression models in which the linear predictor is made of a trend plus a spatial variation
+The trend usually is composed of fixed effects or some smooth terms on covariates, while the spatial variation is usually modeled using correlated random effects.
+Spatial random effects often model (residual) small scale variation and this is the reason why these models can be regarded as models with correlated errors.
 
 Lindgren et al. (2011) describe an approximation to continuous spatial models with a Matérn
-covariance that is based on the solution to a stochastic partial diﬀerential equation (SPDE). 
+covariance that is based on the solution to a stochastic partial differential equation (SPDE). 
 A Gaussian spatial process with Matérn covariance is a solution to SPDE
-This approximation is computed using a sparse representation that can be eﬀectively implemented using the integrated nested Laplace approximation (INLA, Rue et al., 2009)
+This approximation is computed using a sparse representation that can be effectively implemented using the integrated nested Laplace approximation (INLA, Rue et al., 2009)
 
-INLA focuses on models that can be expressed as latent Gaussian Markov random ﬁelds (GMRF)
+INLA focuses on models that can be expressed as latent Gaussian Markov random fields (GMRF)
 
-INLA can handle models with more than one likelihood. By using a model with more than one likelihood it is possible to build a joint model with dfferent types of outputs and the hyperparameters in the likelihoods will be ﬁtted separately.
+INLA can handle models with more than one likelihood. By using a model with more than one likelihood it is possible to build a joint model with different types of outputs and the hyperparameters in the likelihoods will be fitted separately.
 
 We fit the same model on two populations using R-inlabru package. Inlabru is built upon the R-INLA 
 package with simplified syntax. The R-INLA package apply the SPDE approach to add the
@@ -122,6 +122,22 @@ This enables the rapid computation of approximate Bayesian posterior distributio
 parameters and random effects. The R-INLA packages approximates the Gaussian Markov random field by
 solving an SPDE on a triangulation grid.
 The goal of inlabru is to facilitate spatial modeling using integrated nested Laplace approximation via the R-INLA package.
+
+The data set \textbf{PM10s\_SOCAB} has $35 \times 38$ ($\text{number of site} \times \text{number of years}$) 
+rows, where each row represent the measurement of one site in a given year. If a site were not
+measured in some years, the measurement was noted as missing.  The following variables:
+\begin{itemize}
+	\item \textbf{annual\_mean}: The logarithmic transformation of annual mean value of PM10s, which acts as the response variable in the regression model.
+	\item \textbf{slc}: A dummy variable (0 or 1) indicating whether a site was selected in each year.
+	This is the response variable in the site selection model.
+	\item \textbf{slc\_lag}: A dummy variable indicating whether a site was selected in last year.
+	\item \textbf{site\_number}: The indicator of each site, which is used as the group indicator for random effects
+	\item \textbf{locs}: The North/East coordinates (unit 10 km) of sites.
+	\item \textbf{year}: The year in which a observation was recorded.
+	\item \textbf{time}: The standardized years. 
+	\item \textbf{repulsion\_ind}: A dummy variable indicating whether there was other sites in the close neighbor of a site last year.
+	\item \textbf{zero}: A vector of zeros that is used as the auxiliary variable in the auxiliary models.
+\end{itemize}
 
 \begin{lstlisting}[language = R]
 	components <- ~ 
@@ -199,3 +215,5 @@ The goal of inlabru is to facilitate spatial modeling using integrated nested La
 	fit_bru <- bru(components, 
 								 like_obs, like_slc, like_aux1, like_aux2)
 \end{lstlisting} \label{code:inlabru_fit}
+
+\section{Preferential Sampling Effects}
