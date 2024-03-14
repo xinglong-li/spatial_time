@@ -1,4 +1,8 @@
 \section{The implementation using inlabru}
+We take the Bayesian approach and perform posterior inference of the latent effect and parameters.
+Instead of applying MCMC, we use the integrated nested Laplace approximation method 
+\cite{rue2009approximate} to approximate the posterior marginals of the random effects and 
+parameters.
 To implement the preferential sampling model defined by \cref{eq:bs_y} and \cref{eq:bs_r} 
 in INLA, or \textbf{inlabru}, we  are supposed to specify two models. One for the observation 
 process in the Gaussian family and one for the site selection process in the Bernoulli family.

@@ -5,6 +5,7 @@ In one case the population is all sites that have been monitored at some times $
 the estimate of the mean value of the PM10 can be interpreted as the network average.
 By using this population, the model help us detect the effect of PS on estimates of the density of 
 PM10s across all sites ever observed. 
+
 In the other case, we include all vertices of the mesh grid that are inside the border in the 
 population and we treat those unobserved vertices as pseudo site locations. These pseudo sites are
 placed at a density of approximately 3 km throughout SOCAB region, and in this case, the estimate 
@@ -12,16 +13,6 @@ of the mean value of the PM10 in this case can be interpreted as the PM10 densit
 region. Since we are uniformly cover the 
 SOCAB region, this population help us detect if the observed sites are preferentially selected and 
 the effect of PS on estimating the mean of PM10 over the entire SOCAB region.
-
-A Bayesian model is 
-introduced for the joint distribution of the response vector $(Y_{st}, R_{st})$, where $R_{st}$ is
-a binary response for the site selection process. By sharing random effects across the two processes
-the stochastic dependence between the observation and the site selection can be detected and adjust 
-the predictions. In particular, the site selection process is allowed to use information from both
-spatially varying Gaussian processes and spatially-uncorrelated site-specific effects to determine
-the site selection probabilities each year.
-We fit the same preferential sampling model for the two populations.
-
 
 \section{PM10 in California}
 The annual concentration of PM10s from 1965 can be download from the website (\url{https://www.epa.gov/outdoor-air-quality-data}) 
@@ -37,19 +28,26 @@ Sometimes exceptional events happened and can affect the measurements of air pol
 but the local agency has no control over. A wildfire is an example of an exceptional event. 
 We use the summary statistics which remove the affects of extreme events.  
 
-The site locations of these sites can be seen from Fig. Note that each measurement site might has 
+The site locations of these sites can be seen from \cref{fig:socab_sites}. Note that each measurement site might has 
 multiple monitors planted in close but different locations. We combine the measurement of different
-monitors of each site by taking the arithmetic average of bothe the locations and PM10 measurements.
+monitors of each site by taking the arithmetic average of both the locations and PM10 measurements.
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width = 0.8\textwidth]{socab_plots/SOCAB_sites.png}
+	\caption{The sites in the SOCAB region. Each blue dot represent a site. If a site has multiple monitors, the site location is determined by taking the average of coordinates of all monitors.}
+	\label{fig:socab_sites}
+\end{figure}
 
-The decline trend in concentrations of PM10s from 1965 to can be seen from Fig. The sites are added 
+The decline trend in concentrations of PM10s from 1985 to 2022 can be seen from \cref{fig:logpm10_traces}. The sites are added 
 to the network and dropped. It can be seen from the plot that sites remained in the network until 
 the end are those with higher measurements.
+The trend of variance of $\log$(PM10) can be seen from \ref{fig:logpm10_var}. 
 \subsection{The PM10 Data}
 A few data cleaning steps were carried out before fitting the models. Due to the right skewness of 
 the PM10 observation distribution, we applied the natural logarithmic transformation to the values
-to make the observation more Gaussian in shape. Before the log transformation, we firstly divide
+to make the observation more Gaussian in shape. Before taking the log transformation, we firstly divide
 each value by mean of all recorded values to make the response dimensionless.
-We scale the Eastings and Northings coordinates and the unit is 100 km. We scaled the years to
+We scale the East and North coordinates and the unit is 10 km. We scaled the years to
 lie in the interval $[0, 1]$ to stabilize the temporal polynomials used in later analysis.
 
 \subsection{Data Preprocessing}
@@ -61,7 +59,7 @@ logarithmic transformation of the mean value so that the data is dimensionless.
 \begin{figure}[ht]
 	\centering
 	\includegraphics[width = 0.8\textwidth]{socab_plots/logPM10_traces.png}
-	\caption{The sites in the SOCAB region.}
+	\caption{The sites in the SOCAB region. Each curve represents a measurement history of one site.}
 	\label{fig:logpm10_traces}
 \end{figure}
 
@@ -79,13 +77,6 @@ site locations to the UTM (Easting/Northing) coordinates with the measurement un
 
 The border map of SOCAB region is also projected to the same CRS as the site locations, and we keep
 the sites only in the SOCAB region. 
-
-\begin{figure}[ht]
-	\centering
-	\includegraphics[width = 0.8\textwidth]{socab_plots/SOCAB_sites.png}
-	\caption{The sites in the SOCAB region.}
-	\label{fig:socab_sites}
-\end{figure}
 
 \begin{figure}[ht]
 	\centering
