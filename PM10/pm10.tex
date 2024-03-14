@@ -139,6 +139,16 @@ measured in some years, the measurement was noted as missing.  The following var
 	\item \textbf{zero}: A vector of zeros that is used as the auxiliary variable in the auxiliary models.
 \end{itemize}
 
+We fit the joint model using the R-inlabru package. Our joint model includes four likelihoods, which
+includes a Gaussian likelihood for the PM10 concentration process, a binomial likelihood for the
+site selection process, and two auxiliary Gaussian likelihoods that are introduced to share linear
+combinations of random effects across the PM10 concentration process and the site selection process.
+
+According to the syntax of the R-inlabru package, all components (including the shared ones) of all
+likelihoods need to be firstly claimed at once and then used in defining the likelihoods. Each 
+effect is defined using a user-assigned name, the variable, and the random distribution. For example
+
+
 \begin{lstlisting}[language = R]
 	components <- ~ 
 		# Components for observation model
@@ -172,6 +182,11 @@ measured in some years, the measurement was noted as missing.  The following var
 		comp_aux2(site_number, model = 'iid', 
 							hyper = list(prec = list(initial = -20, fixed=TRUE)))
 \end{lstlisting} \label{code:inlabru_components}
+\paragraph{The observation likelihood}
+We assume that the concentration of PM10s in SOCAB follow a normal distribution. The mean value of 
+the concentration is modeled as a combination of a fixed effect and random effects. The fixed 
+effect is a quadratic function of time, and the random effects include spatially correlated process,
+which is a Gaussian Markov random field, and a site-specific random effect.  
 
 \begin{lstlisting}[language = R]
 	like_obs <- like(formula = annual_mean ~ intercept_obs + time_1_obs + time_2_obs +     
@@ -181,6 +196,14 @@ measured in some years, the measurement was noted as missing.  The following var
 									 data = PM10s_SOCAB)
 \end{lstlisting} \label{code:inlabru_lik_obs}
 
+The site selection is assumed to follow a Binomial distribution, which is connected to the linear
+predictor via a logistic transformation. The fixed effect include a quadratic term and terms 
+indicating a site was selected a year before, and a variable indicating the presence of other sites
+within certain distance from a site. The random effects including a spatially correlated effect,
+and a temporally correlated effect. In order to detect the preferential sampling effect, the random
+effects in the observation model are added to the observation process. The shared effects across two
+models allow for the stochastic dependence between the two models.
+
 \begin{lstlisting}[language = R]
 	like_slc <- like(formula = slc ~ intercept_slc + time_1_slc + time_2_slc +     
 																	 lag_slc + repuls_slc + ar_slc + spatial_slc +     
@@ -189,6 +212,12 @@ measured in some years, the measurement was noted as missing.  The following var
 									 Ntrials = rep(1, times = length(PM10s_SOCAB$slc)),  
 									 data = PM10s_SOCAB)
 \end{lstlisting} \label{code:inlabru_lik_slc}
+
+While the R-INLA package and the R-inlabru package allows for components sharing across models, 
+sharing of the linear combination of multiple components is not straightforward. To share a linear
+combination of components between the two likelihoods, we introduce an auxiliary model with zero 
+mean and a vary large variance, and an auxiliary variable to copy the (negative) joint effect of 
+the linear combination of multiple effects. 
 
 \begin{lstlisting}[language = R]
 	like_aux1 <- like(formula = zero ~ random_0_aux1 + random_1_aux1 + comp_aux1,  
