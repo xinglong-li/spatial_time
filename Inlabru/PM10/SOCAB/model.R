@@ -472,19 +472,6 @@ runtime_aux_expand <- end_time_aux_expand - start_time_aux_expand
 
 model <- fit_bru_aux
 
-# Posterior sample at the original sites ----------
-
-pred_bru <- generate(model, 
-                     PM10s, 
-                     ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
-                             Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
-                     n.samples = 2000) %>%
-  as.data.frame() %>%
-  `*`(mean_pm_annually)
-
-pred_bru$year <- PM10s$year
-pred_bru$R <- PM10s$R
-
 # Posterior mean of sites -------------------------
 
 annual_quantiles <- function(ann, ...){
