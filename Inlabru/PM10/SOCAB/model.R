@@ -196,7 +196,7 @@ ggplot(PM10s_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "bl
 # Maybe we should consider set the PC prior using data info
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                 alpha = 2, 
-                                prior.range = c(2.5*edge_in, 0.01),
+                                prior.range = c(3*edge_in, 0.01),
                                 prior.sigma = c(1.5*sqrt(mean(var_annual$var_pm)), 0.1),
                                 constr = T)
 
