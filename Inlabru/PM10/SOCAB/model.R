@@ -179,7 +179,7 @@ for (i in sort(unique(PM10s$year))[-1]) {
 }
 
 # Create mesh
-edge_in = 0.3 # 1.5km
+edge_in = 0.3 # 3 km
 edge_out = 2 * edge_in
 mesh = fm_mesh_2d_inla(loc = cbind(PM10s$east, PM10s$north),
                        boundary = SOCAB_bord,
@@ -196,7 +196,7 @@ ggplot(PM10s_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "bl
 # Maybe we should consider set the PC prior using data info
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                 alpha = 2, 
-                                prior.range = c(3*edge_in, 0.01),
+                                prior.range = c(2.5*edge_in, 0.01),
                                 prior.sigma = c(1.5*sqrt(mean(var_annual$var_pm)), 0.1),
                                 constr = T)
 
@@ -217,10 +217,11 @@ comp_joint_indep <- ~
   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
 
   # Components for site selection model
-  Intercept_slc(1) + Time_slc_1(time) +
-  Time_slc_2(time^2) +
+  Intercept_slc(1) + 
+  Time_slc_1(time) +
+  # Time_slc_2(time^2) +   # The fitted model shows that t^2 and repuls_slc are not significant, so we revomve them and refit the model one by one
   R_lag_slc(R_lag) +
-  Repuls_slc(repulsion_ind) +
+  # Repuls_slc(repulsion_ind) +
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj)
 
@@ -233,8 +234,9 @@ like_obs <- like(
 )
 
 like_slc <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 +
-    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
+  formula = R ~ Intercept_slc + Time_slc_1 + #Time_slc_2 +
+    # R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
+    R_lag_slc + AR_slc + Spatial_slc,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
   data = PM10s
@@ -260,10 +262,11 @@ comp_aux <- ~ Intercept_obs(1) + # Components for observation model
   Spatial_obs_2(locs, weights = time^2, model = spde_obj) +
   
   # Components for site selection model
-  Intercept_slc(1) + Time_slc_1(time) +
-  Time_slc_2(time^2) +
+  Intercept_slc(1) + 
+  Time_slc_1(time) +
+  # Time_slc_2(time^2) +
   R_lag_slc(R_lag) +
-  Repuls_slc(repulsion_ind) +
+  # Repuls_slc(repulsion_ind) +
   AR_slc(year, model='ar1', hyper=list(theta1=list(prior="pcprec",param=c(2, 0.01)))) +
   Spatial_slc(locs, model = spde_obj) +
   Comp_share1(site_number, copy = 'Comp_aux1', fixed = FALSE) + 
@@ -291,8 +294,9 @@ like_obs <- like(
 )
 
 like_slc_share <- like(
-  formula = R ~ Intercept_slc + Time_slc_1 + Time_slc_2 + 
-    R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + 
+  formula = R ~ Intercept_slc + Time_slc_1 + # Time_slc_2 + 
+    # R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + 
+    R_lag_slc + AR_slc + Spatial_slc +
     Comp_share1 + Comp_share2,
   family = "binomial",
   Ntrials = rep(1, times = length(PM10s$R)),
@@ -351,7 +355,10 @@ PM10s_flat_expand$site_number <- 1:dim(PM10s_flat_expand)[1]
 
 ggplot(PM10s_flat_expand) + gg(mesh) + 
   geom_point(aes(x = east, y = north), 
-             color = c(rep(2, dim(PM10s_flat)[1]), rep(3, dim(PM10s_flat_pseudo)[1]))) + coord_fixed()
+             color = c(rep(2, dim(PM10s_flat)[1]), rep(3, dim(PM10s_flat_pseudo)[1]))) + 
+  xlab("East / 10km") +
+  ylab("North / 10km") + 
+  coord_fixed()
 
 # Transform it into long format 
 PM10s_expand = melt(PM10s_flat_expand, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
@@ -470,7 +477,19 @@ runtime_aux_expand <- end_time_aux_expand - start_time_aux_expand
 
 # Predict at grid ==================================================================================
 
+
 model <- fit_bru_aux
+
+pred_bru <- generate(model, 
+                     PM10s, 
+                     ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+                           Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
+                     n.samples = 1000) %>%
+  as.data.frame() %>%
+  `*`(mean_pm_annually)
+
+pred_bru$year <- PM10s$year
+pred_bru$R <- PM10s$R
 
 # Posterior mean of sites -------------------------
 
@@ -507,5 +526,30 @@ ggplot(pred) +
   geom_line(aes(x = year, y = pred_0$ann_mean), col='red') +
   geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
-  ylab("PM10s")
+  ylab("PM10s (Micrograms/cubic meter (25 C))")
+
+
+# Plot the marginal pdf of individual effect, fixed or random.
+# To check the names of all effects:
+# names(fit_bru$marginals.fixed) or names(fit_bru$marginals.random)
+
+plot(model, "Time_obs_1")
+plot(model, "Time_obs_2")
+# plot(model, "Random_obs_0")
+
+# What we are interested in is the range and variance of the Matern covariance funcion, 
+# which are functions of the parameters internally used in inlabru.
+# We can look at the posterior distributions of the range parameter and the log of the variance parameters.
+
+spde.range <- spde.posterior(model, "Spatial_obs_0", what = "range")
+spde.logvar <- spde.posterior(model, "Spatial_obs_0", what = "log.variance")
+
+range.plot <- plot(spde.range)
+var.plot <- plot(spde.logvar)
+multiplot(range.plot, var.plot)
+
+
+# We can look at the posterior distributions of the Matern correlation and covariance functions as follows:
+plot(spde.posterior(model, "Spatial_obs_0", what = "matern.correlation"))
+plot(spde.posterior(model, "Spatial_obs_0", what = "matern.covariance"))
 
