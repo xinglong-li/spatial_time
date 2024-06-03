@@ -10,9 +10,6 @@ library(raster)
 
 # Read data from each year (from 1980 to 2022) and combine the PM10 records ========================
 
-data_path <- "/home/xinglong/Downloads/annual_by_monitor/"
-result_path <- "/home/xinglong/git_local/spatial_time/PM10/"
-
 annul_records <- list.files(data_path, pattern="*.json")
 
 PM10s_raw <- NULL
@@ -229,9 +226,6 @@ saveRDS(PM10s_summary_scaled, sprintf("%sPM10s_CA_summary_scaled.rds", result_pa
 
 # The histgram now looks fine!
 hist(PM10s_summary_scaled$annual_mean)
-
-
-
 
 
 # ##################################################################################################
