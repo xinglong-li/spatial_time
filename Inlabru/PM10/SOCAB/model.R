@@ -64,7 +64,7 @@ PM10s_CA_utm <- bind_rows(PM10s_nad83_utm, PM10s_wgs84_utm) %>%
 # 
 # saveRDS(SOCAB_border, "./Inlabru/PM10/SOCAB/SOCAB_border.rds")
 
-SOCAB_border <- readRDS("./Inlabru/PM10/SOCAB/SOCAB_border.rds")
+SOCAB_border <- readRDS("./PM10/SOCAB/SOCAB_border.rds")
 
 # Filter the sites in SOCAB ------------------------------------------------------------------------
 site_locs <- data.frame("N" = PM10s_CA_utm$N, "E" = PM10s_CA_utm$E) %>%
@@ -74,11 +74,11 @@ xy_in <- st_contains(SOCAB_border, site_locs) %>% as.matrix() %>% c()
 
 PM10s_SOCAB_utm <- PM10s_CA_utm[xy_in, ]
 
-ggplot(PM10s_SOCAB_utm) + gg(as(SOCAB_border, "Spatial")) +
+ggplot(PM10s_SOCAB_utm) + geom_sf(data = SOCAB_border) +
   geom_point(aes(x = E, y = N), color = "blue") + 
   xlab('East / km') +
   ylab('North / km') +
-  coord_equal()
+  coord_sf()
 
 # Aggregate by site --------------------------------------------------------------------------------
 # (Should we aggregate monitors belong to the same sites together?)
@@ -89,11 +89,11 @@ PM10s_SOCAB_summary <- group_by(PM10s_SOCAB_utm, site_number, year) %>%
   mutate(north = mean(north[site_number == site_number]),
          east = mean(east[site_number == site_number]))
 
-ggplot(PM10s_SOCAB_summary) + gg(as(SOCAB_border, "Spatial")) +
+ggplot(PM10s_SOCAB_summary) + geom_sf(data = SOCAB_border) +
   geom_point(aes(x = east, y = north), color = "blue") + 
   xlab('East / km') +
   ylab('North / km') +
-  coord_equal()
+  coord_sf()
 
 # Rescale the coordinates of sites and border, the new unit is 10km --------------------------------
 
@@ -108,7 +108,8 @@ SOCAB_border_scaled <- (SOCAB_border / matrix(data = c(10, 10), ncol = 2)) %>%
   as("Spatial")
 
 ggplot(PM10s_SOCAB_scaled) + gg(SOCAB_border_scaled) + 
-  geom_point(aes(x = east, y = north), color = "blue") + coord_equal()
+  geom_point(aes(x = east, y = north), color = "blue") + 
+  coord_sf()
 
 
 # Fit the Preferential sampling model ==============================================================
@@ -151,8 +152,10 @@ variance_plot
 
 # Prepare variables for the model ==================================================================
 
+# Rescale time to the range of [0, 1]
 PM10s$time <- (PM10s$year - min(PM10s$year)) / (max(PM10s$year) - min(PM10s$year))
 PM10s$locs <- coordinates(PM10s[, c("east", "north")])
+
 PM10s <- select(PM10s, !c("east", "north"))
 PM10s$site_number <- as.numeric(as.factor(PM10s$site_number))
 
