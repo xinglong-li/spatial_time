@@ -1,27 +1,43 @@
-library(dplyr)
+library(jsonlite)
 library(readr)
-library(sp)
+library(dplyr)
 library(ggplot2)
+library(ggspatial)
+library(sf)
+library(sp)
+library(raster)
 
+# rely on the R package "raqs" to automatically download data from the EPA website
+# this is equivalent to the previous method using the API in the EPA website:
+# https://aqs.epa.gov/aqsweb/documents/data_api.html#param
 
-# The daily records of PM10 are downloaded from 
-# https://www.epa.gov/outdoor-air-quality-data/download-daily-data
+library(raqs)
+# setup the account for access to the EPA data
+# store your AQS credentials once per session
+set_aqs_user(
+  email = "xinglong.li@stat.ubc.ca",
+  key   = "khakicrane79"
+)
 
-data_path <- "/home/xinglong/Downloads/"
-result_path <- "/home/xinglong/git_local/spatial_time/PM10/UpdatedData"
+# ---- Whole-history pull: 1999 (first PM2.5 year) to present ----
+ca_pm25_annual <- aqs_annualdata(                     # main “annual” service
+  aqs_filter = "byState",                             # grab *all* CA sites
+  aqs_variables = list(
+    param = "88101",         # PM2.5 – Local Conditions
+    bdate = "19990101",      # begin date – only the *year* matters
+    edate = "20251231",      # end date  – adjust as needed
+    state = "06"             # CA FIPS
+  )
+)
 
-summary_daily  <- read_csv(sprintf("%spm10_25.csv", data_path))
+# peek
+names(ca_pm25_annual)
+head(ca_pm25_annual[c("year", "site_number", "arithmetic_mean")])
 
-
-names(summary_daily) <- gsub(" ", "_", tolower(names(summary_daily)))
-
-print(sprintf("Total number of records: %s", dim(summary_daily)[1]))
-print(sprintf("Total number of states: %s", length(unique(summary_daily$state))))
-print(sprintf("Total number of counties: %s", length(unique(summary_daily$county))))
-print(sprintf("Total number of site_numbers in California: %s", length(unique(summary_daily$site_id))))
-print(sprintf("Total number of local_site names: %s", length(unique(summary_daily$local_site_name))))
-
-# saveRDS(summary_daily, sprintf("%sPM10s_CA_daily_raw.rds", result_path))
+# Some information of the data
+print(sprintf("Total number of records: %s", dim(ca_pm25_annual)[1]))
+print(sprintf("Total number of site_numbers in California: %s", length(unique(ca_pm25_annual$site_number))))
+print(sprintf("Total number of local_site names: %s", length(unique(ca_pm25_annual$local_site_name))))
 
 
 # Prepare the data for model fitting ===============================================================
@@ -29,30 +45,21 @@ print(sprintf("Total number of local_site names: %s", length(unique(summary_dail
 # Descriptions of data each column is in 
 # https://aqs.epa.gov/aqsweb/airdata/FileFormats.html#_annual_summary_files
 
-# Remove Extreme events.
-PM10s_daily <- dplyr::select(summary_daily, c("site_id",
-                                              "poc",
-                                              "site_latitude",
-                                              "site_longitude",
-                                              "date",
-                                              "daily_mean_pm10_concentration",
-                                              "county"))
+# Remove Extreme events, there are sites with only one record "Concurred Events Excluded",
+# and the total number of sites will reduce if we exclude such records. 
+# So we keep such records at the moments.
 
-# saveRDS(PM10s_daily, sprintf("%sPM10s_CA__daily_selected.rds", result_path))
-
-
-# Plot using ggplot2
-ggplot(PM10s_daily, aes(x=date, y=daily_mean_pm10_concentration, color=county, group=site_id)) +
-  geom_line() +
-  labs(
-    title = "PM10 Concentration Over Time",
-    x = "Date",
-    y = "PM10 Concentration ug/m3",
-    color = "County"
-  ) 
+PM25 <- dplyr::select(ca_pm25_annual, 
+                      c("site_number", "poc", "latitude", "longitude", "datum", "year", "arithmetic_mean"))
 
 
 # Convert coordinates of the data ==================================================================
+
+# It is strange to see that some 'site_number's has multiple 'local_site_name's, and each local name
+# has different latitude and longitude.
+# But some site has no local_site_name.
+# For example, site 0007 in year 2021 has 2 local_site_names, even stranger, the poc #1 of this site
+# has 2 local_site_name and they have different locations.
 
 # The approach:
 # Take the mean value of the PM10 arithmetic means over all pocs of one site;
@@ -71,80 +78,97 @@ ggplot(PM10s_daily, aes(x=date, y=daily_mean_pm10_concentration, color=county, g
 # Datum: UTM, Zone 10 (EPSG: 32610) // Zone 10 is used in the Pacific Northwest
 
 # Locations with CRS NAD83
-PM10s_nad83 <- filter(PM10s_daily, datum == "NAD83")
-loc_nad83 <- dplyr::select(PM10s_nad83, c("longitude", "latitude"))
+PM25_nad83 <- filter(PM25, datum == "NAD83")
+loc_nad83 <- dplyr::select(PM25_nad83, c("longitude", "latitude"))
 
 # Locations with CRS WGS84
-PM10s_wgs84 <- filter(PM10s_daily, datum == "WGS84")
-loc_wgs84 <- dplyr::select(PM10s_wgs84, c("longitude", "latitude"))
+PM25_wgs84 <- filter(PM25, datum == "WGS84")
+loc_wgs84 <- dplyr::select(PM25_wgs84, c("longitude", "latitude"))
 
 stopifnot(
-  dim(loc_nad83)[1] + dim(loc_wgs84)[1] == dim(PM10s_daily)[1]
+  dim(loc_nad83)[1] + dim(loc_wgs84)[1] == dim(PM25)[1]
 )
 
 # Project the map into UTM zone 10 with unit kilometer
-km_proj <- CRS("+proj=utm + zone=10 + ellps=WGS84 +units=km")
+km_proj <- CRS("+proj=utm +zone=10 + ellps=WGS84 +units=km")
 
 loc_nad83_spt <- SpatialPoints(loc_nad83, proj4string=CRS("+init=epsg:4296"))
 loc_nad83_to_utm <- spTransform(loc_nad83_spt, km_proj) %>% coordinates()
 loc_wgs84_spt <- SpatialPoints(loc_wgs84, proj4string=CRS("+init=epsg:4326"))
 loc_wgs84_to_utm <- spTransform(loc_wgs84_spt, km_proj) %>% coordinates()
 
-PM10s_nad83_utm <- dplyr::mutate(PM10s_nad83, "N" = loc_nad83_to_utm[, 2],
-                                       "E" = loc_nad83_to_utm[, 1])
-PM10s_wgs84_utm <- dplyr::mutate(PM10s_wgs84, "N" = loc_wgs84_to_utm[, 2],
-                                       "E" = loc_wgs84_to_utm[, 1])
+PM25_nad83_utm <- dplyr::mutate(PM25_nad83, "N" = loc_nad83_to_utm[, 2],
+                                "E" = loc_nad83_to_utm[, 1])
+PM25_wgs84_utm <- dplyr::mutate(PM25_wgs84, "N" = loc_wgs84_to_utm[, 2],
+                                "E" = loc_wgs84_to_utm[, 1])
 
-PM10s_daily_utm <- bind_rows(PM10s_nad83_utm, PM10s_wgs84_utm) %>% 
+PM25_utm <- bind_rows(PM25_nad83_utm, PM25_wgs84_utm) %>% 
   dplyr::select(-c("latitude", "longitude", "datum"))
 
 
 # Aggregate by site --------------------------------------------------------------------------------
 
-# Before aggregating by sites, it can be seen that some of the records are negative ?
-
-
-PM10s_daily_summary <- group_by(PM10s_daily_utm, site_num, date_local) %>%
-  summarise(daily_mean = mean(arithmetic_mean),
+PM25_summary <- group_by(PM25_utm, site_number, year) %>%
+  summarise(annual_mean = mean(arithmetic_mean),
             north = mean(N),
             east = mean(E)) %>%
-  mutate(north = mean(north[site_num == site_num]),
-         east = mean(east[site_num == site_num]))
+  mutate(north = mean(north[site_number == site_number]),
+         east = mean(east[site_number == site_number]))
 
-print(PM10s_daily_summary, n = 100)
+print(PM25_summary, n = 100)
 
-# saveRDS(PM10s_daily_summary, sprintf("%sPM10s_CA_daily_summary.rds", result_path))
+# Import the border map of California ==============================================================
 
+# # The border file of California downloaded have associated projection data,such as ESRI shapefiles. 
+# # ATTENTION: function readOGR from package rgdal is no longer available, should use read_sf from package sf instead 
+# ca_boundary <- readOGR(dsn = "~/Downloads/ca-state-boundary", layer = "CA_State_TIGER2016")
+# ca_boundary_km <- spTransform(ca_boundary, km_proj)
+# proj4string(ca_boundary)
+# plot(ca_boundary)
+# saveRDS(ca_boundary_km, sprintf("%sCA_border.rds", result_path))
+
+ca_boundary_km <- readRDS("PM2.5/CA_border.rds")
 
 # Rescale the coordinates of sites and border, the new unit is 100km ===============================
 
-sd_north <- sd(PM10s_daily_summary$north) # = 181.9436
-sd_east <- sd(PM10s_daily_summary$east) # = 149.8781
+sd_north <- sd(PM25_summary$north) # = 208.73
+sd_east <- sd(PM25_summary$east) # = 142.95
 
-PM10s_daily_summary_scaled <- PM10s_daily_summary
-PM10s_daily_summary_scaled$north <- PM10s_daily_summary$north / 100
-PM10s_daily_summary_scaled$east <- PM10s_daily_summary$east / 100
+PM25_summary_scaled <- PM25_summary
+PM25_summary_scaled$north <- PM25_summary$north / 100
+PM25_summary_scaled$east <- PM25_summary$east / 100
 
-saveRDS(PM10s_daily_summary_scaled, sprintf("%sPM10s_CA_daily_summary_scaled.rds", result_path))
+# Re-scale coordinates of CA boundary
+# Extract coordinates and put them in a list
+extractCoords <- function(sp.df)
+{
+  results <- list()
+  for(i in 1:length(sp.df@polygons[[1]]@Polygons))
+  {
+    results[[i]] <- sp.df@polygons[[1]]@Polygons[[i]]@coords
+  }
+  results
+}
 
+vertices <- extractCoords(ca_boundary_km)
 
-# Preprocess the data to remove outliers ===========================================================
+scaled.vertices <- lapply(vertices, function(x) x / 100)
 
-# It can be seen from this histogram that most values are smaller than 200 or even 150.
-# And there are obvious outliers.
-hist(PM10s_daily_summary_scaled$daily_mean) 
+#Create Polygons and Spatial Polygons Data Frame from scaled list of coordinates
+Polys <- list()
+for (i in 1:length(scaled.vertices)) {
+  Polys[i] <- sp::Polygon(scaled.vertices[[i]])
+}
+Polys.plural <- sp::Polygons(Polys, ID = "0")
+Polys.sp <- sp::SpatialPolygons(listsp, proj4string = km_proj)
+ca_boundary_km_scaled <- sp::SpatialPolygonsDataFrame(Polys.sp, data = ca_boundary_km@data)
 
-# Remove the outliers?
+# plot(ca_boundary_km_scaled)
+# points(PM25_summary_scaled$east, PM25_summary_scaled$north, pch=24, col='blue', cex=0.6)
 
-
-# Prepare monthly measurements =====================================================================
-
-
-
-# Prepare weekly measurements ======================================================================
-
-
-
-
-
-
+ca_boundary_sf <- st_as_sf(ca_boundary_km_scaled)   # ca_boundary_sp is your SpatialPolygonsDataFrame
+ggplot(PM25_summary_scaled) + geom_sf(data = ca_boundary_sf) +
+  geom_point(aes(x = east, y = north), color = "blue") + 
+  xlab('East / km') +
+  ylab('North / km') +
+  coord_sf()
