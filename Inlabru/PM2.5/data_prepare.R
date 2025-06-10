@@ -172,3 +172,9 @@ ggplot(PM25_summary_scaled) + geom_sf(data = ca_boundary_sf) +
   xlab('East / km') +
   ylab('North / km') +
   coord_sf()
+
+
+saveRDS(PM25_summary_scaled, "PM2.5/PM25_with_scaled_boundary.rds")
+saveRDS(ca_boundary_sf, "PM2.5/CA_scaled_boundary.rds")
+
+
