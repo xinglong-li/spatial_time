@@ -106,16 +106,39 @@ PM25_utm <- bind_rows(PM25_nad83_utm, PM25_wgs84_utm) %>%
   dplyr::select(-c("latitude", "longitude", "datum"))
 
 
-# Aggregate by site --------------------------------------------------------------------------------
+# SOCAB border
 
-PM25_summary <- group_by(PM25_utm, site_number, year) %>%
+SOCAB_border <- readRDS("./PM10/SOCAB/SOCAB_border.rds")
+
+# Filter the sites in SOCAB ------------------------------------------------------------------------
+site_locs <- data.frame("N" = PM25_utm$N, "E" = PM25_utm$E) %>%
+  st_as_sf(coords = c("E", "N"), crs=km_proj)
+
+xy_in <- st_contains(SOCAB_border, site_locs) %>% as.matrix() %>% c()
+
+PM25_SOCAB_utm <- PM25_utm[xy_in, ]
+
+ggplot(PM25_SOCAB_utm) + geom_sf(data = SOCAB_border) +
+  geom_point(aes(x = E, y = N), color = "blue") + 
+  xlab('East / km') +
+  ylab('North / km') +
+  coord_sf()
+
+# Aggregate by site --------------------------------------------------------------------------------
+# (Should we aggregate monitors belong to the same sites together?)
+PM25_SOCAB_summary <- group_by(PM25_SOCAB_utm, site_number, year) %>%
   summarise(annual_mean = mean(arithmetic_mean),
             north = mean(N),
             east = mean(E)) %>%
   mutate(north = mean(north[site_number == site_number]),
          east = mean(east[site_number == site_number]))
 
-print(PM25_summary, n = 100)
+ggplot(PM25_SOCAB_summary) + geom_sf(data = SOCAB_border) +
+  geom_point(aes(x = east, y = north), color = "blue") + 
+  xlab('East / km') +
+  ylab('North / km') +
+  coord_sf()
+
 
 # Import the border map of California ==============================================================
 
@@ -126,55 +149,27 @@ print(PM25_summary, n = 100)
 # proj4string(ca_boundary)
 # plot(ca_boundary)
 # saveRDS(ca_boundary_km, sprintf("%sCA_border.rds", result_path))
+# 
+# ca_boundary_km <- readRDS("PM2.5/CA_border.rds")
 
-ca_boundary_km <- readRDS("PM2.5/CA_border.rds")
+# Rescale the coordinates of sites and border, the new unit is 10km ===============================
 
-# Rescale the coordinates of sites and border, the new unit is 100km ===============================
+sd_north <- sd(PM25_SOCAB_summary$north) 
+sd_east <- sd(PM25_SOCAB_summary$east) 
 
-sd_north <- sd(PM25_summary$north) # = 208.73
-sd_east <- sd(PM25_summary$east) # = 142.95
+PM25_SOCAB_scaled <- PM25_SOCAB_summary
+PM25_SOCAB_scaled$north <- PM25_SOCAB_summary$north / 10
+PM25_SOCAB_scaled$east <- PM25_SOCAB_summary$east / 10
 
-PM25_summary_scaled <- PM25_summary
-PM25_summary_scaled$north <- PM25_summary$north / 100
-PM25_summary_scaled$east <- PM25_summary$east / 100
+SOCAB_border_scaled <- (SOCAB_border / matrix(data = c(10, 10), ncol = 2)) %>%
+  as("Spatial")
 
-# Re-scale coordinates of CA boundary
-# Extract coordinates and put them in a list
-extractCoords <- function(sp.df)
-{
-  results <- list()
-  for(i in 1:length(sp.df@polygons[[1]]@Polygons))
-  {
-    results[[i]] <- sp.df@polygons[[1]]@Polygons[[i]]@coords
-  }
-  results
-}
-
-vertices <- extractCoords(ca_boundary_km)
-
-scaled.vertices <- lapply(vertices, function(x) x / 100)
-
-#Create Polygons and Spatial Polygons Data Frame from scaled list of coordinates
-Polys <- list()
-for (i in 1:length(scaled.vertices)) {
-  Polys[i] <- sp::Polygon(scaled.vertices[[i]])
-}
-Polys.plural <- sp::Polygons(Polys, ID = "0")
-Polys.sp <- sp::SpatialPolygons(listsp, proj4string = km_proj)
-ca_boundary_km_scaled <- sp::SpatialPolygonsDataFrame(Polys.sp, data = ca_boundary_km@data)
-
-# plot(ca_boundary_km_scaled)
-# points(PM25_summary_scaled$east, PM25_summary_scaled$north, pch=24, col='blue', cex=0.6)
-
-ca_boundary_sf <- st_as_sf(ca_boundary_km_scaled)   # ca_boundary_sp is your SpatialPolygonsDataFrame
-ggplot(PM25_summary_scaled) + geom_sf(data = ca_boundary_sf) +
+ggplot(PM25_SOCAB_scaled) + gg(SOCAB_border_scaled) + 
   geom_point(aes(x = east, y = north), color = "blue") + 
-  xlab('East / km') +
-  ylab('North / km') +
   coord_sf()
 
 
-saveRDS(PM25_summary_scaled, "PM2.5/PM25_with_scaled_boundary.rds")
-saveRDS(ca_boundary_sf, "PM2.5/CA_scaled_boundary.rds")
+saveRDS(PM25_SOCAB_scaled, "PM2.5/PM25_SOCAB_scaled.rds")
+saveRDS(SOCAB_border_scaled, "PM2.5/SOCAB_border_scaled.rds")
 
 

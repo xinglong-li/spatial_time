@@ -2,7 +2,7 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 library(sp)
-library(INLA)
+#library(INLA)
 library(inlabru)
 library(reshape2)
 
