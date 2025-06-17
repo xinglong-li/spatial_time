@@ -2,7 +2,7 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 library(sp)
-#library(INLA)
+library(INLA)
 library(inlabru)
 library(reshape2)
 
@@ -10,37 +10,7 @@ library(reshape2)
 PM25 <- readRDS("PM2.5/PM25_SOCAB_scaled.rds")
 SOCAB_border <- readRDS("PM2.5/SOCAB_border_scaled.rds")
 
-# Filter the sites in SOCAB ------------------------------------------------------------------------
-site_locs <- data.frame("N" = PM10s_CA_utm$N, "E" = PM10s_CA_utm$E) %>%
-  st_as_sf(coords = c("E", "N"), crs = crs_utm_km)
-
-xy_in <- st_contains(SOCAB_border, site_locs) %>% as.matrix() %>% c()
-
-PM10s_SOCAB_utm <- PM10s_CA_utm[xy_in, ]
-
-ggplot(PM10s_SOCAB_utm) + geom_sf(data = SOCAB_border) +
-  geom_point(aes(x = E, y = N), color = "blue") + 
-  xlab('East / km') +
-  ylab('North / km') +
-  coord_sf()
-
-# Aggregate by site --------------------------------------------------------------------------------
-# (Should we aggregate monitors belong to the same sites together?)
-PM10s_SOCAB_summary <- group_by(PM10s_SOCAB_utm, site_number, year) %>%
-  summarise(annual_mean = mean(arithmetic_mean),
-            north = mean(N),
-            east = mean(E)) %>%
-  mutate(north = mean(north[site_number == site_number]),
-         east = mean(east[site_number == site_number]))
-
-ggplot(PM10s_SOCAB_summary) + geom_sf(data = SOCAB_border) +
-  geom_point(aes(x = east, y = north), color = "blue") + 
-  xlab('East / km') +
-  ylab('North / km') +
-  coord_sf()
-
-
-ggplot(PM25) + geom_sf(data = CA_boundary) +
+ggplot(PM25) + gg(SOCAB_border) + 
   geom_point(aes(x = east, y = north), color = "blue") + 
   xlab('East / km') +
   ylab('North / km') +
@@ -99,7 +69,7 @@ PM25$zero <- 0
 # Compute Euclidean distances between all the sites
 dists <- spDists(cbind(PM25_flat$east, PM25_flat$north))
 
-r <- 0.01 # The maximum radius of interest to be 1 km
+r <- 0.1 # The maximum radius of interest to be 1 km
 PM25$repulsion_ind <- 0
 
 counter <- no_sites + 1
@@ -120,10 +90,10 @@ for (i in sort(unique(PM25$year))[-1]) {
 ###################################################################################################
 
 # Create mesh
-edge_in = 0.05 # 5 km
+edge_in = 1 # 5 km
 edge_out = 2 * edge_in
 mesh = fm_mesh_2d_inla(loc = cbind(PM25$east, PM25$north),
-                       boundary = SOCAB_bord,
+                       boundary = SOCAB_border,
                        offset = c(2*edge_in, edge_out), 
                        max.edge = 2*c(edge_in, edge_out),
                        cutoff = edge_in,
