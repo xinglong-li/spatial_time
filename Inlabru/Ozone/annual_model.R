@@ -9,11 +9,11 @@ library(reshape2)
 library(lubridate)
 
 
-Ozone <- readRDS("Ozone/Ozone_SOCAB_scaled.rds")
-SOCAB_border <- readRDS("Ozone/SOCAB_border_scaled.rds")
+Ozone <- readRDS("Ozone/Ozone_Annual_SOCAB_utm.rds")
+SOCAB_border <- readRDS("./PM10/SOCAB/SOCAB_border.rds")
 
-ggplot(Ozone) + gg(SOCAB_border) + 
-  geom_point(aes(x = east, y = north), color = "blue") + 
+ggplot(Ozone) + geom_sf(data = SOCAB_border) +
+  geom_point(aes(x = E, y = N), color = "blue") + 
   xlab('East / km') +
   ylab('North / km') +
   coord_sf()
