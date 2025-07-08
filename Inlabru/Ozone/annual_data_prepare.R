@@ -23,27 +23,29 @@ o3_ca <- aqs_annualdata(
   aqs_filter   = "byState",
   aqs_variables = list(
     param = "44201",        # ozone
-    bdate = "19740101",     # silly-early begin date → API snaps to first year with data
+    bdate = "19830101",     # silly-early begin date → API snaps to first year with data
     edate = "20241231",     # latest complete calendar year (2025 not yet final)
     state = "06"            # California FIPS
   )
 )
 
-
-Ozone <- o3_ca %>% dplyr::select(
-  state_code,
-  county_code,
-  site_number,
-  poc,
-  latitude, 
-  longitude, 
-  datum, 
-  year,
-  event_type,
-  arithmetic_mean) %>% 
+Ozone <- o3_ca %>%
+  filter(pollutant_standard == "Ozone 8-hour 2015") %>%
+  filter(event_type %in% c("No Events", "Events Included")) %>%
+  dplyr::select(
+    state_code,
+    county_code,
+    site_number,
+    poc,
+    datum,
+    latitude, 
+    longitude, 
+    year,
+    event_type,
+    arithmetic_mean) %>% 
   mutate(
     site_id = paste0(state_code, county_code, site_number)
-  )
+    )
 
 
 # Some information of the data

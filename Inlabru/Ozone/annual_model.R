@@ -9,69 +9,54 @@ library(reshape2)
 library(lubridate)
 
 
-Ozone <- readRDS("Ozone/Ozone_Annual_SOCAB_utm.rds")
+Ozone <- readRDS("Ozone/Ozone_Annual_SOCAB_utm.rds") %>%
+  dplyr::select(site_id, N, E, year, arithmetic_mean) %>% 
+  rename(
+    north  = N,
+    east  = E
+  )
+
 SOCAB_border <- readRDS("./PM10/SOCAB/SOCAB_border.rds")
 
-ggplot(Ozone) + geom_sf(data = SOCAB_border) +
-  geom_point(aes(x = E, y = N), color = "blue") + 
-  xlab('East / km') +
-  ylab('North / km') +
+sd_north <- sd(Ozone$N) # = 20.96
+sd_east <- sd(Ozone$E) # = 45.67
+
+Ozone_scaled <- Ozone %>%
+  mutate(
+    north = north / 10,
+    east = east / 10,
+    sqrt_mean = sqrt(arithmetic_mean)
+  ) %>%
+  select( -arithmetic_mean )
+
+SOCAB_border_scaled <- (SOCAB_border / matrix(data = c(10, 10), ncol = 2)) 
+
+ggplot(Ozone_scaled) + geom_sf(data = SOCAB_border_scaled) +
+  geom_point(aes(x = east, y = north), color = "blue") + 
+  xlab('East / 10 km') +
+  ylab('North / 10 km') +
   coord_sf()
 
-# Fit the Preferential sampling model ==============================================================
-
-# Data preprocessing -------------------------------------------------------------------------------
-print(sprintf("Total number of annual measurements: %s", dim(Ozone)[1]))
-print(sprintf("Total number of sites: %s", length(unique(Ozone$site_number))))
-print(sprintf("The sd of East coordinates is: %s", sd(Ozone$east)))
-print(sprintf("The sd of North coordinates is: %s", sd(Ozone$north)))
-
-
-Ozone_ts <- Ozone %>%                    # your raw hourly tibble
-  mutate(
-    ## step 1 – deal with the rare “24:00” at midnight -----------------
-    time_fix = if_else(time_local == "24:00", "00:00", time_local),
-    date_fix = as.Date(date_local) + (time_local == "24:00"),
-    
-    ## step 2 – build a proper datetime in the network’s local zone ----
-    datetime = ymd_hm(
-      paste(date_fix, time_fix),
-      tz = "UTC"     # or "UTC" if you prefer
-    )
-  ) %>% 
-  select(site_number, datetime, sample_measurement, north, east) %>%
-  drop_na()
-
-mean_hourly <- group_by(Ozone_ts, datetime) %>%
-  summarise(mean_oz = mean(sample_measurement)) 
-mean_ozone <- mean(mean_hourly$mean_oz)
-Ozone_ts$hourly_mean <- sqrt(Ozone_ts$sample_measurement)
-
-no_sites = length(unique(Ozone_ts$north))
-no_T = length(unique(Ozone_ts$datetime))
-
+# Flatten the observations  ==============================================================
 # Reform the data so that each site has num_of_year rows, the empty records are filled with NAs
-Ozone_flat <- dcast(Ozone_ts, site_number + north + east ~ datetime, value.var = "sample_measurement")
-Ozone = melt(Ozone_flat, id.vars = c(1,2,3), variable.name = 'time_local', value.name = 'hourly_mean')
-Ozone$time_local <- as.numeric(as.character(factor(Ozone$time_local)))
+ozone_flat <- dcast(Ozone_scaled, site_id + north + east ~ year, value.var = "sqrt_mean")
+# after melt, each site has equal number of years of records, missing values are filled with NAs
+ozone = melt(ozone_flat, id.vars = c(1,2,3), variable.name = 'year', value.name = 'sqrt_mean')
+ozone$year <- as.numeric(as.character(factor(ozone$year, labels = 1983:2024)))
 
-stopifnot(dim(Ozone)[1] == no_sites * no_T)
-
-means_plot = ggplot(data = slice_tail(Ozone, n=6240), aes(x = time_local, y = hourly_mean)) +
-  geom_line(aes(group = north, colour = north)) + xlab("Time") + ylab("log(Ozone)")
+means_plot = ggplot(data = ozone, aes(x = year, y=sqrt_mean)) +
+  geom_line(aes(group = site_id, colour = site_id)) + xlab("Year") + ylab("Ozone (sqrt)")
 means_plot
 
-var_annual <- group_by(Ozone, year) %>% 
-  summarise(var_pm = var(annual_mean, na.rm = T))
-variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_pm)) +
-  geom_line() + geom_smooth() + xlab("Year") + ylab("Variance of log(PM2.5)") 
-ggtitle('A plot of the variance of the log annual means with fitted smoother')
+var_annual <- group_by(ozone, year) %>% 
+  summarise(var_oz = var(sqrt_mean, na.rm = T))
+variance_plot =  ggplot(data = var_annual, aes(x = year, y = var_oz)) +
+  geom_line() + geom_smooth() + xlab("Year") + ylab("Variance of sqrt(Ozone)") 
+ggtitle('A plot of the variance of the square root annual means with fitted smoother')
 variance_plot
 
-
-
 # project 1:
-# start from the annual ozone data and chethe normality
+# start from the annual ozone data and the the normality
 # check for both ozone season and annual levels 
 # check and verify the square root of ozone
 # lets see if there is preferential sampling effect
@@ -81,36 +66,37 @@ variance_plot
 # then looking for ozone future forecast
 
 
-
-
 # Prepare variables for the model ==================================================================
 
-# Rescale time to the range of [0, 1]
-Ozone$time <- (Ozone$year - min(Ozone$year)) / (max(Ozone$year) - min(Ozone$year))
-Ozone$locs <- coordinates(Ozone[, c("east", "north")])
+no_sites <- length(unique(ozone$site_id))
+no_T <- length(unique(ozone$year))
 
-Ozone <- select(Ozone, !c("east", "north"))
-Ozone$site_number <- as.numeric(as.factor(Ozone$site_number))
+# Rescale time to the range of [0, 1]
+ozone$time <- (ozone$year - min(ozone$year)) / (max(ozone$year) - min(ozone$year))
+ozone$locs <- coordinates(ozone[, c("east", "north")])
+
+ozone$site_number <- as.numeric(as.factor(ozone$site_id))
+ozone <- dplyr::select(ozone, c(site_number, year, time, sqrt_mean, locs))
 
 # Site-selection indicator
-Ozone$R <- as.numeric(!is.na(Ozone$annual_mean))
-Ozone$R_lag <- c(rep(NA, no_sites), Ozone$R[1:(dim(Ozone)[1]-no_sites)])
+ozone$R <- as.numeric(!is.na(ozone$sqrt_mean))
+ozone$R_lag <- c(rep(NA, no_sites), ozone$R[1:(dim(ozone)[1]-no_sites)])
 
 # Response variable for the auxiliary model
-Ozone$zero <- 0
+ozone$zero <- 0
 
 # Compute Euclidean distances between all the sites
-dists <- spDists(cbind(Ozone_flat$east, Ozone_flat$north))
+dists <- spDists(cbind(ozone_flat$east, ozone_flat$north))
 
-r <- 0.1 # The maximum radius of interest to be 1 km
-Ozone$repulsion_ind <- 0
+r <- 0.5 # The maximum radius of interest to be 5 km
+ozone$repulsion_ind <- 0
 
 counter <- no_sites + 1
-for (i in sort(unique(Ozone$year))[-1]) {
+for (i in sort(unique(ozone$year))[-1]) {
   # First extract the data at time i
-  data_i <- Ozone[Ozone$year == i, ]
+  data_i <- ozone[ozone$year == i, ]
   # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it?
-  Ozone$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(dists[, which(data_i$R_lag==1)] < r) > 0
+  ozone$repulsion_ind[counter:(counter+(no_sites - 1))] = rowSums(dists[, which(data_i$R_lag==1)] < r) > 0
   counter <- counter + no_sites
 }
 
@@ -123,16 +109,16 @@ for (i in sort(unique(Ozone$year))[-1]) {
 ###################################################################################################
 
 # Create mesh
-edge_in = 1 # 5 km
+edge_in = 0.5 # 5 km
 edge_out = 2 * edge_in
-mesh = fm_mesh_2d_inla(loc = cbind(Ozone$east, Ozone$north),
-                       boundary = SOCAB_border,
+mesh = fm_mesh_2d_inla(loc = cbind(ozone$east, ozone$north),
+                       boundary = SOCAB_border_scaled,
                        offset = c(2*edge_in, edge_out), 
                        max.edge = 2*c(edge_in, edge_out),
                        cutoff = edge_in,
                        min.angle = 21)
 mesh$n
-ggplot(Ozone_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + 
+ggplot(ozone_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "blue") + 
   xlab("East / 10km") +
   ylab("North / 10km") +
   coord_fixed()
@@ -141,13 +127,12 @@ ggplot(Ozone_flat) + gg(mesh) + geom_point(aes(x = east, y = north), color = "bl
 spde_obj <- inla.spde2.pcmatern(mesh = mesh, 
                                 alpha = 2, 
                                 prior.range = c(2.5*edge_in, 0.01),
-                                prior.sigma = c(1.5*sqrt(mean(var_annual$var_pm)), 0.1),
+                                prior.sigma = c(1.5*sqrt(mean(var_annual$var_oz)), 0.1),
                                 constr = T)
 
 # Build inlabru model ==============================================================================
 
 # Joint independent model --------------------------------------------------------------------------
-
 comp_joint_indep <- ~ 
   # Components for observation model
   Intercept_obs(1) +
@@ -169,11 +154,11 @@ comp_joint_indep <- ~
   Spatial_slc(locs, model = spde_obj)
 
 like_obs <- like(
-  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 +
+  formula = sqrt_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 +
     Random_obs_0 + Random_obs_1 +
     Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
   family = "gaussian",
-  data = Ozone
+  data = ozone
 )
 
 like_slc <- like(
@@ -181,8 +166,8 @@ like_slc <- like(
     # R_lag_slc + Repuls_slc + AR_slc + Spatial_slc,
     R_lag_slc + AR_slc + Spatial_slc,
   family = "binomial",
-  Ntrials = rep(1, times = length(Ozone$R)),
-  data = Ozone
+  Ntrials = rep(1, times = length(ozone$R)),
+  data = ozone
 )
 
 bru_options_reset()
@@ -227,14 +212,13 @@ comp_aux <- ~ Intercept_obs(1) + # Components for observation model
   Spatial_aux2_2(locs, weights = time^2, copy = "Spatial_obs_2", fixed = TRUE) +
   Comp_aux2(site_number, model = 'iid', hyper = list(prec = list(initial = -20, fixed=TRUE)))
 
-
 # All likelihoods
 like_obs <- like(
-  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+  formula = sqrt_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
     Random_obs_0 + Random_obs_1 + 
     Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
   family = "gaussian",
-  data = Ozone
+  data = ozone
 )
 
 like_slc_share <- like(
@@ -243,20 +227,20 @@ like_slc_share <- like(
     R_lag_slc + AR_slc + Spatial_slc +
     Comp_share1 + Comp_share2,
   family = "binomial",
-  Ntrials = rep(1, times = length(Ozone$R)),
-  data = Ozone
+  Ntrials = rep(1, times = length(ozone$R)),
+  data = ozone
 )
 
 like_aux_1 <- like(
   formula = zero ~ Random_aux1_0 + Random_aux1_1 + Comp_aux1,
   family = "gaussian",
-  data = Ozone
+  data = ozone
 )
 
 like_aux_2 <- like(
   formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
-  data = Ozone
+  data = ozone
 )
 
 bru_options_reset()
@@ -279,11 +263,11 @@ runtime_aux <- end_time_aux - start_time_aux
 # The model with extended data set =================================================================
 
 # Once we have created the mesh, we expand the data and treat all mesh nodes inside the border as pseudo sites
-Ozone_flat <- dcast(Ozone0, site_number + north + east ~ year, value.var = "annual_mean")
+crs_utm_km <- CRS("+proj=utm +zone=10 + ellps=WGS84 +units=km")
+Ozone_flat <- dcast(Ozone_scaled, site_id + north + east ~ year, value.var = "sqrt_mean")
 nodes_locs <- data.frame("N" = mesh$loc[, 2]*10, "E" = mesh$loc[, 1]*10) %>%
   st_as_sf(coords = c("E", "N"), crs = crs_utm_km)
 idx_in <- st_contains(SOCAB_border, nodes_locs) %>% as.matrix() %>% c()
-
 sites_locs <- data.frame("east" = Ozone_flat$east, "north" = Ozone_flat$north)
 nodes_in_locs <- data.frame("east" = mesh$loc[idx_in, 1], "north" = mesh$loc[idx_in, 2])
 pseudo_sites <- setdiff(nodes_in_locs, sites_locs) 
@@ -296,7 +280,7 @@ Ozone_flat_pseudo$north <- pseudo_sites$north
 Ozone_flat_pseudo$east <- pseudo_sites$east
 Ozone_flat_expand <- rbind(Ozone_flat, Ozone_flat_pseudo)
 # Create site number for all pseudo and real sites
-Ozone_flat_expand$site_number <- 1:dim(Ozone_flat_expand)[1]
+Ozone_flat_expand$site_id <- 1:dim(Ozone_flat_expand)[1]
 
 ggplot(Ozone_flat_expand) + gg(mesh) + 
   geom_point(aes(x = east, y = north), 
@@ -306,36 +290,40 @@ ggplot(Ozone_flat_expand) + gg(mesh) +
   coord_fixed()
 
 # Transform it into long format 
-Ozone_expand = melt(Ozone_flat_expand, id.vars = c(1,2,3), variable.name = 'year', value.name = 'annual_mean')
-Ozone_expand$year <- as.numeric(as.character(factor(Ozone_expand$year, labels = 1985:2022)))
+ozone_expand = melt(Ozone_flat_expand, id.vars = c(1,2,3), variable.name = 'year', value.name = 'sqrt_mean')
+ozone_expand$year <- as.numeric(as.character(factor(ozone_expand$year, labels = 1983:2024)))
 
 no_sites_expand = dim(Ozone_flat_expand)[1]
-stopifnot(dim(Ozone_expand)[1] == no_sites_expand * no_T)
+stopifnot(dim(ozone_expand)[1] == no_sites_expand * no_T)
 
-Ozone_expand$time <- (Ozone_expand$year - min(Ozone_expand$year)) / (max(Ozone_expand$year) - min(Ozone_expand$year))
-Ozone_expand$locs <- coordinates(Ozone_expand[, c("east", "north")])
-Ozone_expand <- select(Ozone_expand, !c("east", "north"))
-Ozone_expand$site_number <- as.numeric(as.factor(Ozone_expand$site_number))
+ozone_expand$time <- (ozone_expand$year - min(ozone_expand$year)) / (max(ozone_expand$year) - min(ozone_expand$year))
+ozone_expand$locs <- coordinates(ozone_expand[, c("east", "north")])
+ozone_expand <- select(ozone_expand, !c("east", "north"))
+ozone_expand <- ozone_expand %>% mutate(
+  site_number = as.numeric(as.factor(ozone_expand$site_id))
+) %>% select(
+  -site_id
+)
 
 # Site-selection indicator
-Ozone_expand$R <- as.numeric(!is.na(Ozone_expand$annual_mean))
-Ozone_expand$R_lag <- c(rep(NA, no_sites_expand), Ozone_expand$R[1:(dim(Ozone_expand)[1]-no_sites_expand)])
+ozone_expand$R <- as.numeric(!is.na(ozone_expand$sqrt_mean))
+ozone_expand$R_lag <- c(rep(NA, no_sites_expand), ozone_expand$R[1:(dim(ozone_expand)[1]-no_sites_expand)])
 
 # Response variable for the auxiliary model
-Ozone_expand$zero <- 0
+ozone_expand$zero <- 0
 
 # Compute Euclidean distances between all the sites
 dists_expand <- spDists(cbind(Ozone_flat_expand$east, Ozone_flat_expand$north))
 
-r <- 0.1 # The maximum radius of interest to be 1 km
-Ozone_expand$repulsion_ind <- 0
+r <- 0.5 # The maximum radius of interest to be 5 km
+ozone_expand$repulsion_ind <- 0
 
 counter <- no_sites_expand + 1
-for (i in sort(unique(Ozone_expand$year))[-1]) {
+for (i in sort(unique(ozone_expand$year))[-1]) {
   # First extract the data at time i
-  data_i <- Ozone_expand[Ozone_expand$year == i, ]
+  data_i <- ozone_expand[ozone_expand$year == i, ]
   # Compute the repulsion indicator. Was there a site at year i-1 within radius r of it?
-  Ozone_expand$repulsion_ind[counter:(counter+(no_sites_expand - 1))] = rowSums(dists_expand[, which(data_i$R_lag==1)] < r) > 0
+  ozone_expand$repulsion_ind[counter:(counter+(no_sites_expand - 1))] = rowSums(dists_expand[, which(data_i$R_lag==1)] < r) > 0
   counter <- counter + no_sites_expand
 }
 
@@ -377,11 +365,11 @@ comp_aux_expand <- ~
 
 # All likelihoods
 like_obs <- like(
-  formula = annual_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
+  formula = sqrt_mean ~ Intercept_obs + Time_obs_1 + Time_obs_2 + 
     Random_obs_0 + Random_obs_1 + 
     Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2,
   family = "gaussian",
-  data = Ozone_expand
+  data = ozone_expand
 )
 
 like_slc_share <- like(
@@ -390,20 +378,20 @@ like_slc_share <- like(
     # R_lag_slc + Repuls_slc + AR_slc + Spatial_slc + 
     Comp_share1 + Comp_share2,
   family = "binomial",
-  Ntrials = rep(1, times = length(Ozone_expand$R)),
-  data = Ozone_expand
+  Ntrials = rep(1, times = length(ozone_expand$R)),
+  data = ozone_expand
 )
 
 like_aux_1 <- like(
   formula = zero ~ Random_aux1_0 + Random_aux1_1 + Comp_aux1,
   family = "gaussian",
-  data = Ozone_expand
+  data = ozone_expand
 )
 
 like_aux_2 <- like(
   formula = zero ~ Spatial_aux2_0 + Spatial_aux2_1 + Spatial_aux2_2 + Comp_aux2,
   family = "gaussian",
-  data = Ozone_expand
+  data = ozone_expand
 )
 
 bru_options_reset()
