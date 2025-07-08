@@ -410,8 +410,6 @@ fit_bru_aux_expand <- bru(comp_aux_expand, like_obs, like_slc_share, like_aux_1,
 end_time_aux_expand <- Sys.time()
 runtime_aux_expand <- end_time_aux_expand - start_time_aux_expand
 
-
-
 # Predict at grid ==================================================================================
 # uses the original dataset ========================================================================
 
@@ -421,15 +419,13 @@ model_enlarged <- fit_bru_aux_expand  # the joint model on the expanded dataset
 
 # make prediction on the original 
 pred_bru <- generate(model_joint, 
-                     Ozone, 
-                     ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
-                           Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
+                     ozone, 
+                     ~ (Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+                           Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2)^2,
                      n.samples = 1000) %>%
-  as.data.frame() %>%
-  `*`(mean_pm_annually)
-
-pred_bru$year <- Ozone$year
-pred_bru$R <- Ozone$R
+  as.data.frame()
+pred_bru$year <- ozone$year
+pred_bru$R <- ozone$R
 
 # Posterior mean of sites -------------------------
 
@@ -454,11 +450,11 @@ pred_0 <- filter(pred_bru, R == 0) %>%
 
 # Annual mean of observations ---------------------
 
-bs_summary <- group_by(Ozone, year) %>%
-  summarise(ann_mean_exp = mean(exp(annual_mean), na.rm=TRUE)*mean_pm_annually)
+bs_summary <- group_by(ozone, year) %>%
+  summarise(ann_mean = mean((sqrt_mean)^2, na.rm=TRUE))
 
 ggplot(pred) +
-  geom_line(aes(x = year, y = bs_summary$ann_mean_exp), col='black') +
+  geom_line(aes(x = year, y = bs_summary$ann_mean), col='black') +
   geom_line(aes(x = year, y = ann_mean), col='blue') +
   geom_ribbon(aes(x = year, ymin = q_low, ymax = q_up), fill='blue', alpha = 0.5) +
   geom_line(aes(x = year, y = pred_1$ann_mean), col='green') +
@@ -466,7 +462,7 @@ ggplot(pred) +
   geom_line(aes(x = year, y = pred_0$ann_mean), col='red') +
   geom_ribbon(aes(x = year, ymin = pred_0$q_low, ymax = pred_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
-  ylab("Ozone (Micrograms/cubic meter (25 C))")
+  ylab("Ozone")
 
 
 # # Plot the marginal pdf of individual effect, fixed or random.
@@ -498,15 +494,14 @@ ggplot(pred) +
 
 # make prediction on the original dataset but use the model fitted on the enlarged dataset
 pred_bru_expand_initial <- generate(model_enlarged, 
-                            Ozone, 
-                            ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
-                                    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
+                            ozone, 
+                            ~ (Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+                                    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2)^2,
                             n.samples = 1000) %>%
-  as.data.frame() %>%
-  `*`(mean_pm_annually)
+  as.data.frame()
 
-pred_bru_expand_initial$year <- Ozone$year
-pred_bru_expand_initial$R <- Ozone$R
+pred_bru_expand_initial$year <- ozone$year
+pred_bru_expand_initial$R <- ozone$R
 
 # Posterior mean of sites -------------------------
 
@@ -532,15 +527,14 @@ pred_expand_initial_0 <- filter(pred_bru_expand_initial, R == 0) %>%
 
 # make prediction on the enlarged dataset -----------------------------------
 pred_bru_expand <- generate(model_enlarged, 
-                            Ozone_expand, 
-                            ~ exp(Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
-                                    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2),
+                            ozone_expand, 
+                            ~ (Intercept_obs + Time_obs_1 + Time_obs_2 + Random_obs_0 + Random_obs_1 + 
+                                    Spatial_obs_0 + Spatial_obs_1 + Spatial_obs_2)^2,
                             n.samples = 1000) %>%
-  as.data.frame() %>%
-  `*`(mean_pm_annually)
+  as.data.frame()
 
-pred_bru_expand$year <- Ozone_expand$year
-pred_bru_expand$R <- Ozone_expand$R
+pred_bru_expand$year <- ozone_expand$year
+pred_bru_expand$R <- ozone_expand$R
 
 # Posterior mean of sites -------------------------
 
@@ -565,11 +559,11 @@ pred_expand_0 <- filter(pred_bru_expand, R == 0) %>%
 
 # Annual mean of observations ---------------------
 
-bs_summary <- group_by(Ozone_expand, year) %>%
-  summarise(ann_mean_exp = mean(exp(annual_mean), na.rm=TRUE)*mean_pm_annually)
+bs_summary <- group_by(ozone_expand, year) %>%
+  summarise(ann_mean = mean((annual_mean)^2, na.rm=TRUE))
 
 ggplot(pred_expand) +
-  geom_line(aes(x = year, y = bs_summary$ann_mean_exp), col='black') +
+  geom_line(aes(x = year, y = bs_summary$ann_mean), col='black') +
   geom_line(aes(x = year, y = ann_mean), col='blue') +
   geom_ribbon(aes(x = year, ymin = q_low, ymax = q_up), fill='blue', alpha = 0.5) +
   geom_line(aes(x = year, y = pred_expand_1$ann_mean), col='green') +
@@ -577,7 +571,7 @@ ggplot(pred_expand) +
   geom_line(aes(x = year, y = pred_expand_initial_0$ann_mean), col='red') +
   geom_ribbon(aes(x = year, ymin = pred_expand_initial_0$q_low, ymax = pred_expand_initial_0$q_up), fill='red', alpha = 0.5) +
   xlab("Year") +
-  ylab("Ozone (Micrograms/cubic meter (25 C))")
+  ylab("Ozone")
 
 
 # Plot the marginal pdf of individual effect, fixed or random.
