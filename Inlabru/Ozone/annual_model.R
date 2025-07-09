@@ -560,7 +560,7 @@ pred_expand_0 <- filter(pred_bru_expand, R == 0) %>%
 # Annual mean of observations ---------------------
 
 bs_summary <- group_by(ozone_expand, year) %>%
-  summarise(ann_mean = mean((annual_mean)^2, na.rm=TRUE))
+  summarise(ann_mean = mean((sqrt_mean)^2, na.rm=TRUE))
 
 ggplot(pred_expand) +
   geom_line(aes(x = year, y = bs_summary$ann_mean), col='black') +
@@ -579,13 +579,15 @@ ggplot(pred_expand) +
 # names(fit_bru$marginals.fixed) or names(fit_bru$marginals.random)
 
 plot(model_enlarged, "Time_obs_1")
+plot(model_enlarged, "Time_obs_1")
+
 plot(model_enlarged, "Time_obs_2")
-# plot(model_enlarged, "Random_obs_0")
-# 
-# # What we are interested in is the range and variance of the Matern covariance funcion, 
-# # which are functions of the parameters internally used in inlabru.
-# # We can look at the posterior distributions of the range parameter and the log of the variance parameters.
-# 
+plot(model_enlarged, "Random_obs_0")
+
+# What we are interested in is the range and variance of the Matern covariance funcion,
+# which are functions of the parameters internally used in inlabru.
+# We can look at the posterior distributions of the range parameter and the log of the variance parameters.
+
 # spde.range <- spde.posterior(model_enlarged, "Spatial_obs_0", what = "range")
 # spde.logvar <- spde.posterior(model_enlarged, "Spatial_obs_0", what = "log.variance")
 # 

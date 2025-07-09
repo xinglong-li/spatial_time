@@ -23,7 +23,7 @@ o3_ca <- aqs_annualdata(
   aqs_filter   = "byState",
   aqs_variables = list(
     param = "44201",        # ozone
-    bdate = "19830101",     # silly-early begin date → API snaps to first year with data
+    bdate = "19830101",   
     edate = "20241231",     # latest complete calendar year (2025 not yet final)
     state = "06"            # California FIPS
   )
@@ -44,7 +44,7 @@ Ozone <- o3_ca %>%
     event_type,
     arithmetic_mean) %>% 
   mutate(
-    site_id = paste0(state_code, county_code, site_number)
+    site_id = paste0(county_code, site_number)
     )
 
 
