@@ -19,25 +19,39 @@ set_aqs_user(
   key   = "sandbird73"
 )
 
-o3_ca_2024 <- aqs_sampledata(
+o3_ca <- aqs_sampledata(
   aqs_filter   = "byState",
   aqs_variables = list(
     state     = "06",       # California FIPS
     param     = "44201",    # O₃
-    bdate     = "20240101",
-    edate     = "20241231"
+    bdate     = "20250501",
+    edate     = "20250630"
   )
 ) 
 
-o3_ca_2025 <- aqs_sampledata(
-  aqs_filter   = "byState",
-  aqs_variables = list(
-    state     = "06",       # California FIPS
-    param     = "44201",    # O₃
-    bdate     = "20250101",
-    edate     = "20250531"
+
+Ozone <- o3_ca %>%
+  filter(pollutant_standard == "Ozone 8-hour 2015") %>%
+  filter(event_type %in% c("No Events", "Events Included")) %>%
+  dplyr::select(
+    state_code,
+    county_code,
+    site_number,
+    poc,
+    datum,
+    latitude, 
+    longitude, 
+    year,
+    event_type,
+    arithmetic_mean) %>% 
+  mutate(
+    site_id = paste0(county_code, site_number)
   )
-) 
+
+
+# Some information of the data
+print(sprintf("Total number of records: %s", dim(Ozone)[1]))
+print(sprintf("Total number of site_numbers in California: %s", length(unique(Ozone$site_id))))
 
 Ozone <- o3_ca_2025 %>% dplyr::select(site_number, latitude, longitude, 
                                       datum, date_local, time_local, 
